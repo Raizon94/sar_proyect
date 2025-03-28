@@ -225,7 +225,7 @@ class SAR_Indexer:
         
         """
         print(f"Creating kdtree {len(self.embeddings)}...", end="")
-	self.kdtree = KDTree(self.embeddings)
+	    self.kdtree = KDTree(self.embeddings)
         print("done!")
 
 
