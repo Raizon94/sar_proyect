@@ -225,7 +225,8 @@ class SAR_Indexer:
         
         """
         print(f"Creating kdtree {len(self.embeddings)}...", end="")
-	    self.kdtree = KDTree(self.embeddings)
+	    
+        self.kdtree = KDTree(self.embeddings)
         print("done!")
 
 
@@ -370,13 +371,18 @@ class SAR_Indexer:
         dependiendo del valor de self.positional se debe ampliar el indexado
 
         """
-
+        index = dict()
         for i, line in enumerate(open(filename)):
             j = self.parse_article(line)
+            for linea in j["all"]:
+                for word in linea:
+                    if word not in index:
+                        index[word] = {}
+                    if i not in index[word]:
+                        index[word].append(i)
 
-
-        #
-        # 
+        # Julián:
+        # Va linea por linea del "all" del articulo, y palabra por palabra, revisando si está en el diccionario para crear una entrada, y agregando el número del documento a su entrada
         # Solo se debe indexar el contenido self.DEFAULT_FIELD
         #
         #
@@ -384,6 +390,7 @@ class SAR_Indexer:
         #################
         ### COMPLETAR ###
         #################
+
 
 
     def tokenize(self, text:str):
