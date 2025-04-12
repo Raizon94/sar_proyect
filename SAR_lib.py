@@ -371,22 +371,48 @@ class SAR_Indexer:
         dependiendo del valor de self.positional se debe ampliar el indexado
 
         """
-        index = dict()
-        for i, line in enumerate(open(filename)):
-            j = self.parse_article(line)
-            for linea in j["all"]:
-                for word in linea:
-                    if word not in index:
-                        index[word] = {}
-                    if i not in index[word]:
-                        index[word].append(i)
+        #docid unico
+        docid = len(self.docs)
+        self.docs[docid] = filename
 
+        for i, line in enumerate(open(filename)):
+            article = self.parse_article(line)
+            # Comprobamos si el artículo ya está indexado
+            if self.already_in_index(article):
+                continue
+            # Asignamos un identificador único al artículo
+            artid = len(self.articles)
+            # Guardamos la URL para evitar duplicados
+            self.urls.add(article['url'])
+            # Guardamos la información del artículo
+            self.articles[artid] = {
+                'docid': docid,
+                'position': i,
+                'title': article['title'],
+                'url': article['url']
+            }
+            tokens = self.tokenize(article[self.DEFAULT_FIELD])
+            if self.positional:
+                for pos, token in enumerate(tokens):
+                    if token not in self.index:
+                        self.index[token] = {}
+                    if artid not in self.index[token]:
+                        self.index[token][artid] = []
+                    self.index[token][artid].append(pos)
+            else:
+                for token in set(tokens):  # Usamos set para eliminar duplicados, se puede??
+                    if token not in self.index:
+                        self.index[token] = []
+                    if artid not in self.index[token]:
+                        self.index[token].append(artid)
         # Julián:
         # Va linea por linea del "all" del articulo, y palabra por palabra, revisando si está en el diccionario para crear una entrada, y agregando el número del documento a su entrada
         # Solo se debe indexar el contenido self.DEFAULT_FIELD
         #
+        # Jorge: asigna docid unico, procesa cada linea y la parsea, comprueba que no estuviera ya el artículo,
+        # asigna artid unico, guarda info para poder localizar el artículo en un docid, indexa en función de self.positionals
         #
-        #
+        # 
         #################
         ### COMPLETAR ###
         #################
@@ -480,13 +506,14 @@ class SAR_Indexer:
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
-
-        #distingo entre un término entre "" y otro entre '', para saber si necesito 
-        # Si el término está entre comillas, es  de una frase posicional
-        if term.startswith('"') and term.endswith('"'):
-            return self.get_positionals(term)
-        # Buscar término en el índice
-        return sorted(self.index.get(term.lower(), {}).keys())
+        if term in self.index:
+            if self.positional:
+                # Si es posicional, devolvemos solo los artids (las claves)
+                return self.get_positionals(term.lower())
+            else:
+                # Si no es posicional, ya tenemos la lista de artids
+                return sorted(self.index[term.lower()])
+        return []
 
 
 
