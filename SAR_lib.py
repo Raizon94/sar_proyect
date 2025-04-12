@@ -480,7 +480,13 @@ class SAR_Indexer:
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
-        pass
+
+        #distingo entre un término entre "" y otro entre '', para saber si necesito 
+        # Si el término está entre comillas, es  de una frase posicional
+        if term.startswith('"') and term.endswith('"'):
+            return self.get_positionals(term)
+        # Buscar término en el índice
+        return sorted(self.index.get(term.lower(), {}).keys())
 
 
 
@@ -517,11 +523,26 @@ class SAR_Indexer:
         return: posting list con todos los artid exceptos los contenidos en p
 
         """
-        
-        pass
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
+        #Jorge:
+        #implementación obtenida como una operación All AND NOT P, similar a la implementación de minus_posting
+        all_docs = sorted(self.articles.keys())
+        result = []
+        i = j = 0
+        while i < len(all_docs) and j < len(p):
+            if all_docs[i] < p[j]:
+                result.append(all_docs[i])
+                i += 1
+            elif all_docs[i] == p[j]:
+                i += 1
+                j += 1
+            else:
+                j += 1
+        # Añadir los documentos restantes
+        result.extend(all_docs[i:])
+        return result
 
 
 
@@ -538,10 +559,23 @@ class SAR_Indexer:
 
         """
         
-        pass
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
+
+        #realizado de acuerdo con la descripción en pseudocódigo del tema 1 de la asignatura. Jorge.
+        result = []
+        i = j = 0
+        while i < len(p1) and j < len(p2):
+            if p1[i] == p2[j]:
+                result.append(p1[i])
+                i += 1
+                j += 1
+            elif p1[i] < p2[j]:
+                i += 1
+            else:
+                j += 1
+        return result
 
 
 
@@ -562,11 +596,24 @@ class SAR_Indexer:
 
         """
 
-        
-        pass
         ########################################################
         ## COMPLETAR PARA TODAS LAS VERSIONES SI ES NECESARIO ##
         ########################################################
+        #Jorge: implementación obtenida de acuerdo con el ejercicio realizado al final del tema 1: a partir de las posting list de los términos A y B
+        # proporciona el resultado de posting_list(A) AND NOT posting_list(B)
+        result = []
+        i = j = 0
+        while i < len(p1) and j < len(p2):
+            if p1[i] < p2[j]:
+                result.append(p1[i])
+                i += 1
+            elif p1[i] == p2[j]:
+                i += 1
+                j += 1
+            else:
+                j += 1
+        result.extend(p1[i:])
+        return result
 
 
 
