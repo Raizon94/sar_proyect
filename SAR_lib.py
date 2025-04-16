@@ -506,6 +506,8 @@ class SAR_Indexer:
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
+        #Jorge
+        
         if term in self.index:
             if self.positional:
                 # Si es posicional, devolvemos solo los artids (las claves)
