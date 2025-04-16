@@ -1,1 +1,4 @@
-.venv
+.venv/
+
+SAR_semantics_demo.ipynb
+SAR_semantics.ipynb
