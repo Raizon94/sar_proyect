@@ -9,36 +9,33 @@ import pickle
 import numpy as np
 import nltk
 
+from nltk.tokenize import sent_tokenize
+import sentence_transformers
+from scipy.spatial import KDTree
+from scipy.spatial.distance import cosine
+nltk.download('punkt')
 
-## UTILIZAR PARA LA AMPLIACION
-if False:
-    from nltk.tokenize import sent_tokenize
-    import sentence_transformers
-    from scipy.spatial import KDTree
-    from scipy.spatial.distance import cosine
-    nltk.download('punkt')
+def cosine_similarity(v1, v2):
+    """
+    
+    Calcula la similitud coseno de dos vectores. La funcion 'cosine' devuelve la 'distancia coseno'
+    
+    similitud_coseno = 1 - distancia_coseno
+    
+    """
+    return 1 - cosine(v1, v2)
 
-    def cosine_similarity(v1, v2):
-        """
-        
-        Calcula la similitud coseno de dos vectores. La funcion 'cosine' devuelve la 'distancia coseno'
-        
-        similitud_coseno = 1 - distancia_coseno
-        
-        """
-        return 1 - cosine(v1, v2)
+def euclidean_to_cosine(d:float):
+    """
+    
+    Pasa de distancia euclidea DE VECTORES NORMALIZADOS a similitud coseno. 
+    
+    """
+    return 1 - d**2/2
+    
+    
 
-    def euclidean_to_cosine(d:float):
-        """
-        
-        Pasa de distancia euclidea DE VECTORES NORMALIZADOS a similitud coseno. 
-        
-        """
-        return 1 - d**2/2
-        
-        
-
-    SEMANTIC_MODEL = "jaimevera1107/all-MiniLM-L6-v2-similarity-es"
+SEMANTIC_MODEL = "jaimevera1107/all-MiniLM-L6-v2-similarity-es"
 
 class SAR_Indexer:
     """
@@ -496,9 +493,49 @@ class SAR_Indexer:
 
         """
         
-        if query is None or len(query) == 0:
-            return []
+        if not query:
+            return [], {}
 
+        # Extrae frases ("…") o tokens sueltos
+        tokens = re.findall(r'"[^"]+"|\S+', query)
+        result = None
+        i = 0
+
+        while i < len(tokens):
+            token = tokens[i]
+
+            # Operador NOT
+            if token.upper() == 'NOT':
+                if i + 1 < len(tokens):
+                    next_tok = tokens[i + 1]
+                    # Calcula posting de next_tok
+                    if next_tok.startswith('"') and next_tok.endswith('"'):
+                        phrase = next_tok[1:-1]
+                        terms = self.tokenize(phrase)
+                        p = self.get_positionals(terms)
+                    else:
+                        p = self.get_posting(next_tok.lower())
+                    p = self.reverse_posting(p)
+                    # Combina con AND
+                    result = p if result is None else self.and_posting(result, p)
+                i += 2
+                continue
+
+            # Frase entre comillas
+            if token.startswith('"') and token.endswith('"'):
+                phrase = token[1:-1]
+                terms = self.tokenize(phrase)
+                p = self.get_positionals(terms)
+            else:
+                # Término normal
+                p = self.get_posting(token.lower())
+
+            result = p if result is None else self.and_posting(result, p)
+            i += 1
+
+        if result is None:
+            result = []
+        return result, {}
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
@@ -761,7 +798,15 @@ class SAR_Indexer:
         return: el numero de artículo recuperadas, para la opcion -T
 
         """
-        pass
+        results, _ = self.solve_query(query)
+        total = len(results)
+        to_show = results if self.show_all else results[:self.SHOW_MAX]
+
+        for idx, artid in enumerate(to_show, start=1):
+            art = self.articles[artid]
+            print(f"{idx}\t{artid}\t{art['title']}\t{art['url']}")
+
+        return total
         ################
         ## COMPLETAR  ##
         ################
