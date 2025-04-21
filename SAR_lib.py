@@ -547,11 +547,57 @@ class SAR_Indexer:
         return: posting list
 
         """
+        # terms puede ser un string (un solo termino), en lugar de una lista de terminos
+        if isinstance(terms, str):
+            terms = [terms]
 
-        #################################
-        ## COMPLETAR PARA POSICIONALES ##
-        #################################
-        pass
+        # Caso vacío
+        if not terms or len(terms) == 0:
+            return []
+
+        # Caso de un solo término
+        if len(terms) == 1:
+            if terms[0] in self.index:
+                return sorted(self.index[terms[0]].keys())
+            return []
+        
+        # Caso donde terms es una lista de terminos. (Deben encontrarse en posiciones consecutivas)
+        res = []
+        
+        # Verificar que todos los términos existen en el índice
+        for term in terms:
+            if term not in self.index:
+                return []  # Si algún término no existe, no hay resultados
+        
+        # Para cada artículo que contiene el primer término
+        for artid in self.index[terms[0]]:
+            # Verificar si el artículo contiene el resto de términos de la lista 
+            contiene_todos = True
+            for term in terms[1:]:
+                if artid not in self.index[term]:
+                    contiene_todos = False
+                    break
+            
+            if not contiene_todos:
+                continue
+            
+            # Buscar secuencias de posiciones consecutivas
+            for pos in self.index[terms[0]][artid]:
+                secuencia_valida = True
+                for i, term in enumerate(terms[1:], 1):
+                    # Verificar si el término siguiente aparece en la posición consecutiva
+                    # Si el primer termino se encuentra en la posicion pos, el segundo termino deberia aparecer en pos+1
+                    # Para verificar, consultamos si en el indice posicional, hemos almacenado pos+1
+                    # en la lista de ocurrencias del segundo termino del articulo artid.
+                    if pos + i not in self.index[term][artid]:
+                        secuencia_valida = False
+                        break
+                
+                if secuencia_valida:
+                    res.append(artid)
+                    break  # Una vez encontrada una secuencia válida, pasar al siguiente artículo
+        
+            return sorted(res)
 
 
 
