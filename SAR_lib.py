@@ -443,10 +443,27 @@ class SAR_Indexer:
         Muestra estadisticas de los indices
 
         """
-        pass
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
+        print("========================================")
+        print("Estadísticas de indexación:")
+        print("========================================")
+        print(f"Número total de artículos indexados: {len(self.articles)}")
+        print(f"Número total de documentos (ficheros) indexados: {len(self.docs)}")
+        print(f"Tamaño del vocabulario (términos únicos): {len(self.index)}")
+        print(f"Número total de URLs únicas: {len(self.urls)}")
+        
+        
+        if self.positional:
+            print("Índice posicional: Activado")
+        else:
+            print("Índice posicional: Desactivado")
+            
+        
+        if self.semantic:
+            print("Índice semántico: Activado")
+        else:
+            print("Índice semántico: Desactivado")
+        
+        print("========================================")
 
 
 
