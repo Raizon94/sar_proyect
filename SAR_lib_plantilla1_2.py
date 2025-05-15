@@ -436,6 +436,27 @@ class SAR_Indexer:
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
+        print("========================================")
+        print("Estadísticas de indexación:")
+        print("========================================")
+        print(f"Número total de artículos indexados: {len(self.articles)}")
+        print(f"Número total de documentos (ficheros) indexados: {len(self.docs)}")
+        print(f"Tamaño del vocabulario (términos únicos): {len(self.index)}")
+        print(f"Número total de URLs únicas: {len(self.urls)}")
+        
+        
+        if self.positional:
+            print("Índice posicional: Activado")
+        else:
+            print("Índice posicional: Desactivado")
+            
+        
+        if self.semantic:
+            print("Índice semántico: Activado")
+        else:
+            print("Índice semántico: Desactivado")
+        
+        print("========================================")
 
 
 
@@ -467,14 +488,53 @@ class SAR_Indexer:
         return: posting list con el resultado de la query
 
         """
-        
-        if query is None or len(query) == 0:
-            return []
-
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
+        
+        if not query:
+            return [], {}
 
+        # Extrae frases ("…") o tokens sueltos
+        tokens = re.findall(r'"[^"]+"|\S+', query)
+        result = None
+        i = 0
+
+        while i < len(tokens):
+            token = tokens[i]
+
+            # Operador NOT
+            if token.upper() == 'NOT':
+                if i + 1 < len(tokens):
+                    next_tok = tokens[i + 1]
+                    # Calcula posting de next_tok
+                    if next_tok.startswith('"') and next_tok.endswith('"'):
+                        phrase = next_tok[1:-1]
+                        terms = self.tokenize(phrase)
+                        p = self.get_positionals(terms)
+                    else:
+                        p = self.get_posting(next_tok.lower())
+                    p = self.reverse_posting(p)
+                    # Combina con AND
+                    result = p if result is None else self.and_posting(result, p)
+                i += 2
+                continue
+
+            # Frase entre comillas
+            if token.startswith('"') and token.endswith('"'):
+                phrase = token[1:-1]
+                terms = self.tokenize(phrase)
+                p = self.get_positionals(terms)
+            else:
+                # Término normal
+                p = self.get_posting(token.lower())
+
+            result = p if result is None else self.and_posting(result, p)
+            i += 1
+
+        if result is None:
+            result = []
+        return result, {}
 
 
 
@@ -523,6 +583,8 @@ class SAR_Indexer:
         #################################
         ## COMPLETAR PARA POSICIONALES ##
         #################################
+
+        ## hecho en la versión 1 por X, pero creo que la implementación es incorrecta. "Jorge"
         pass
 
 
@@ -695,7 +757,15 @@ class SAR_Indexer:
         return: el numero de artículo recuperadas, para la opcion -T
 
         """
-        pass
+        results, _ = self.solve_query(query)
+        total = len(results)
+        to_show = results if self.show_all else results[:self.SHOW_MAX]
+
+        for idx, artid in enumerate(to_show, start=1):
+            art = self.articles[artid]
+            print(f"{idx}\t{artid}\t{art['title']}\t{art['url']}")
+
+        return total
         ################
         ## COMPLETAR  ##
         ################
