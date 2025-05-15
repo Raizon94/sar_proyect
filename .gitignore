@@ -2,3 +2,6 @@
 
 SAR_semantics_demo.ipynb
 SAR_semantics.ipynb
+
+# Ignora carpeta _pycache_
+_pycache_
