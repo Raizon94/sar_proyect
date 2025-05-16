@@ -390,10 +390,11 @@ class SAR_Indexer:
             if self.positional:
                 for pos, token in enumerate(tokens):
                     if token not in self.index:
-                        self.index[token] = {}
-                    if artid not in self.index[token]:
-                        self.index[token][artid] = []
-                    self.index[token][artid].append(pos)
+                        self.index[token] = []
+                        self.index[token].append((artid,[]))
+                    if artid != self.index[token][-1][0]:
+                        self.index[token].append((artid,[]))
+                    self.index[token][-1][1].append(pos)
             else:
                 for token in set(tokens):  # Usamos set para eliminar duplicados, se puede??
                     if token not in self.index:
