@@ -606,7 +606,7 @@ class SAR_Indexer:
         return resultado
         
     # Función adicional, PREGUNTAR SOBRE ESTA
-    def interseccion_posicional_con_punteros(posting1: dict, posting2: dict) -> dict:
+    def interseccion_posicional_con_punteros(posting1:list , posting2: list):
         """
         Realiza intersección posicional de dos postings con punteros al estilo merge.
         Retorna los artid de posting2 donde alguna posición está justo después (p+1)
@@ -622,13 +622,11 @@ class SAR_Indexer:
         resultado = {}
         #Jorge
         # Convertir las postings en listas ordenadas por artid
-        p1_items = sorted(posting1.items())
-        p2_items = sorted(posting2.items())
         
         i = j = 0
-        while i < len(p1_items) and j < len(p2_items):
-            artid1, positions1 = p1_items[i]
-            artid2, positions2 = p2_items[j]
+        while i < len(posting1) and j < len(posting2):
+            artid1, positions1 = posting1[i]
+            artid2, positions2 = posting2[j]
             
             if artid1 == artid2:
                 matches = []
