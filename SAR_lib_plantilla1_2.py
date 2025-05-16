@@ -559,7 +559,7 @@ class SAR_Indexer:
         
         if term in self.index:
             if self.positional:
-                # Si es posicional, devolvemos solo los artids (las claves)
+                # Si es posicional
                 return self.get_positionals(term.lower())
             else:
                 # Si no es posicional, ya tenemos la lista de artids
@@ -585,7 +585,81 @@ class SAR_Indexer:
         #################################
 
         ## hecho en la versión 1 por X, pero creo que la implementación es incorrecta. "Jorge"
-        pass
+        if not self.positional:
+            raise ValueError("Índice no posicional. No se puede buscar frases exactas.")
+
+        if not terms or len(terms) < 2:
+            return self.index.get(terms[0], {}) if terms else {}
+
+        # Empezamos con la posting del primer término
+        resultado = self.index.get(terms[0], {})
+
+        for i in range(1, len(terms)):
+            siguiente_posting = self.index.get(terms[i], {})
+            if not siguiente_posting:
+                return {}  # Si un término no está, no puede estar la frase completa
+            resultado = self.interseccion_posicional_con_punteros(resultado, siguiente_posting)
+            if not resultado:
+                return {}  # Cortocircuito si ya no hay coincidencias
+
+        return resultado
+        
+    # Función adicional, PREGUNTAR SOBRE ESTA
+    def interseccion_posicional_con_punteros(posting1: dict, posting2: dict) -> dict:
+        """
+        Realiza intersección posicional de dos postings con punteros al estilo merge.
+        Retorna los artid de posting2 donde alguna posición está justo después (p+1)
+        de alguna posición de posting1.
+
+        Parameters:
+            posting1 (dict): {artid: [posiciones]}
+            posting2 (dict): {artid: [posiciones]}
+
+        Returns:
+            dict: {artid: [posiciones de posting2 que cumplen la condición]}
+        """
+        resultado = {}
+        #Jorge
+        # Convertir las postings en listas ordenadas por artid
+        p1_items = sorted(posting1.items())
+        p2_items = sorted(posting2.items())
+        
+        i = j = 0
+        while i < len(p1_items) and j < len(p2_items):
+            artid1, positions1 = p1_items[i]
+            artid2, positions2 = p2_items[j]
+            
+            if artid1 == artid2:
+                matches = []
+                p1_pos = positions1
+                p2_pos = positions2
+                m = n = 0
+
+                # Intersección posicional: p2 debe ser p1 + 1
+                while m < len(p1_pos) and n < len(p2_pos):
+                    if p2_pos[n] == p1_pos[m] + 1:
+                        matches.append(p2_pos[n])
+                        m += 1
+                        n += 1
+                    elif p2_pos[n] < p1_pos[m] + 1:
+                        n += 1
+                    else:
+                        m += 1
+                
+                if matches:
+                    resultado[artid1] = matches
+
+                i += 1
+                j += 1
+            
+            elif artid1 < artid2:
+                i += 1
+            else:
+                j += 1
+
+        return resultado
+
+
 
 
 
