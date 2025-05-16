@@ -70,6 +70,7 @@ class SAR_Indexer:
         self.show_all = False # valor por defecto, se cambia con self.set_showall()
 
         # PARA LA AMPLIACION
+        self.positional = False
         self.semantic = None
         self.chuncks = []
         self.embeddings = []
@@ -397,7 +398,7 @@ class SAR_Indexer:
                 for token in set(tokens):  # Usamos set para eliminar duplicados, se puede??
                     if token not in self.index:
                         self.index[token] = []
-                    if artid not in self.index[token]:
+                    if artid != self.index[token][-1]:
                         self.index[token].append(artid)
 
         #

@@ -76,8 +76,8 @@ class SAR_Indexer:
         self.articles = {} # hash de articulos --> clave entero (artid), valor: la info necesaria para diferencia los artículos dentro de su fichero
         self.tokenizer = re.compile(r"\W+") # expresion regular para hacer la tokenizacion
         self.show_all = False # valor por defecto, se cambia con self.set_showall()
-
         # PARA LA AMPLIACION
+        self.positional = False
         self.semantic = None
         self.chuncks = []
         self.embeddings = []
@@ -392,15 +392,15 @@ class SAR_Indexer:
             if self.positional:
                 for pos, token in enumerate(tokens):
                     if token not in self.index:
-                        self.index[token] = {}
-                    if artid not in self.index[token]:
+                        self.index[token] = []
+                    if artid != self.index[token][-1]:
                         self.index[token][artid] = []
                     self.index[token][artid].append(pos)
             else:
                 for token in set(tokens):  # Usamos set para eliminar duplicados, se puede??
                     if token not in self.index:
                         self.index[token] = []
-                    if artid not in self.index[token]:
+                    if artid != self.index[token][-1]:
                         self.index[token].append(artid)
         # Julián:
         # Va linea por linea del "all" del articulo, y palabra por palabra, revisando si está en el diccionario para crear una entrada, y agregando el número del documento a su entrada
