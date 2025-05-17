@@ -389,17 +389,23 @@ class SAR_Indexer:
             tokens = self.tokenize(article[self.DEFAULT_FIELD])
             if self.positional:
                 for pos, token in enumerate(tokens):
+                    # Alternativa más explícita para la lógica posicional
+                    if token not in self.index:
+                        self.index[token] = [(artid, [pos])]
+                    else:
+                        # El token ya existe
+                        if self.index[token][-1][0] == artid:
+                            # El token ya existe para este artículo, añadir posición
+                            self.index[token][-1][1].append(pos)
+                        else:
+                            # El token existe, pero es la primera vez para este artículo
+                            self.index[token].append((artid, [pos]))
+            else: # self.positional is False
+                for token in set(tokens):
                     if token not in self.index:
                         self.index[token] = []
-                        self.index[token].append((artid,[]))
-                    if artid != self.index[token][-1][0]:
-                        self.index[token].append((artid,[]))
-                    self.index[token][-1][1].append(pos)
-            else:
-                for token in set(tokens):  # Usamos set para eliminar duplicados, se puede??
-                    if token not in self.index:
-                        self.index[token] = []
-                    if artid != self.index[token][-1]:
+                    # Corregido: Añadir si la lista está vacía O si el artid es diferente al último
+                    if not self.index[token] or artid != self.index[token][-1]:
                         self.index[token].append(artid)
 
         #
@@ -565,7 +571,7 @@ class SAR_Indexer:
                 return self.get_positionals(term.lower())
             else:
                 # Si no es posicional, ya tenemos la lista de artids
-                return sorted(self.index[term.lower()])
+                return self.index[term.lower()]
         return []
 
 
@@ -589,24 +595,25 @@ class SAR_Indexer:
         ## hecho en la versión 1 por X, pero creo que la implementación es incorrecta. "Jorge"
         if not self.positional:
             raise ValueError("Índice no posicional. No se puede buscar frases exactas.")
-
-        if not terms or len(terms) < 2:
-            return self.index.get(terms[0], {}) if terms else {}
+        if not terms:
+            return []
+        if len(terms) == 1:
+            return self.index.get(terms[0], [])
 
         # Empezamos con la posting del primer término
-        resultado = self.index.get(terms[0], {})
+        resultado = self.index.get(terms[0], [])
 
         for i in range(1, len(terms)):
-            siguiente_posting = self.index.get(terms[i], {})
+            siguiente_posting = self.index.get(terms[i], [])
             if not siguiente_posting:
-                return {}  # Si un término no está, no puede estar la frase completa
+                return []  # Si un término no está, no puede estar la frase completa
             resultado = self.interseccion_posicional_con_punteros(resultado, siguiente_posting)
             if not resultado:
-                return {}  # Cortocircuito si ya no hay coincidencias
+                return []  # Cortocircuito si ya no hay coincidencias
 
         return resultado
         
-    # Función adicional, PREGUNTAR SOBRE ESTA
+    # Función adicional, PREGUNTADO
     def interseccion_posicional_con_punteros(posting1:list , posting2: list):
         """
         Realiza intersección posicional de dos postings con punteros al estilo merge.
@@ -620,43 +627,33 @@ class SAR_Indexer:
         Returns:
             dict: {artid: [posiciones de posting2 que cumplen la condición]}
         """
-        resultado = {}
         #Jorge
-        # Convertir las postings en listas ordenadas por artid
-        
+        resultado = []
         i = j = 0
         while i < len(posting1) and j < len(posting2):
             artid1, positions1 = posting1[i]
             artid2, positions2 = posting2[j]
-            
+
             if artid1 == artid2:
                 matches = []
-                p1_pos = positions1
-                p2_pos = positions2
                 m = n = 0
-
-                # Intersección posicional: p2 debe ser p1 + 1
-                while m < len(p1_pos) and n < len(p2_pos):
-                    if p2_pos[n] == p1_pos[m] + 1:
-                        matches.append(p2_pos[n])
+                while m < len(positions1) and n < len(positions2):
+                    if positions2[n] == positions1[m] + 1:
+                        matches.append(positions2[n])
                         m += 1
                         n += 1
-                    elif p2_pos[n] < p1_pos[m] + 1:
+                    elif positions2[n] < positions1[m] + 1:
                         n += 1
                     else:
                         m += 1
-                
                 if matches:
-                    resultado[artid1] = matches
-
+                    resultado.append((artid1, matches))
                 i += 1
                 j += 1
-            
             elif artid1 < artid2:
                 i += 1
             else:
                 j += 1
-
         return resultado
 
 
@@ -684,7 +681,7 @@ class SAR_Indexer:
         ########################################
         #Jorge:
         #implementación obtenida como una operación All AND NOT P, similar a la implementación de minus_posting
-        all_docs = sorted(self.articles.keys())
+        all_docs = self.articles.keys()
         result = []
         i = j = 0
         while i < len(all_docs) and j < len(p):

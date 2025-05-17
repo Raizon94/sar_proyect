@@ -1,35 +1,41 @@
-# versión 1.1
-
 import json
 import os
 import re
 import sys
+import math
 from pathlib import Path
 from typing import Optional, List, Union, Dict
 import pickle
+import numpy as np
 import nltk
-from SAR_semantics import SentenceBertEmbeddingModel, BetoEmbeddingCLSModel, BetoEmbeddingModel, SpacyStaticModel
 
+from nltk.tokenize import sent_tokenize
+import sentence_transformers
+from scipy.spatial import KDTree
+from scipy.spatial.distance import cosine
+nltk.download('punkt')
 
-# INICIO CAMBIO EN v1.1
-## UTILIZAR PARA LA AMPLIACION
-# Selecciona un modelo semántico
-SEMANTIC_MODEL = "SBERT"
-#SEMANTIC_MODEL = "BetoCLS"
-#SEMANTIC_MODEL = "Beto"
-#SEMANTIC_MODEL = "Spacy"
-#SEMANTIC_MODEL = "Spacy_noSW_noA"
-
-def create_semantic_model(modelname):
-    assert modelname in ("SBERT", "BetoCLS", "Beto", "Spacy", "Spacy_noSW_noA")
+def cosine_similarity(v1, v2):
+    """
     
-    if modelname == "SBERT": return SentenceBertEmbeddingModel()    
-    elif modelname == "BetoCLS": return BetoEmbeddingCLSModel()
-    elif modelname == "Beto": return BetoEmbeddingModel()
-    elif modelname == "Spacy": SpacyStaticModel(remove_stopwords=False, remove_noalpha=False)
-    return SpacyStaticModel()
-# FIN CAMBIO EN v1.1
+    Calcula la similitud coseno de dos vectores. La funcion 'cosine' devuelve la 'distancia coseno'
+    
+    similitud_coseno = 1 - distancia_coseno
+    
+    """
+    return 1 - cosine(v1, v2)
 
+def euclidean_to_cosine(d:float):
+    """
+    
+    Pasa de distancia euclidea DE VECTORES NORMALIZADOS a similitud coseno. 
+    
+    """
+    return 1 - d**2/2
+    
+    
+
+SEMANTIC_MODEL = "jaimevera1107/all-MiniLM-L6-v2-similarity-es"
 
 class SAR_Indexer:
     """
@@ -43,6 +49,8 @@ class SAR_Indexer:
     Los metodos que se añadan se deberan documentar en el codigo y explicar en la memoria
     """
 
+
+    
     # campo que se indexa
     DEFAULT_FIELD = 'all'
     # numero maximo de documento a mostrar cuando self.show_all es False
@@ -68,7 +76,6 @@ class SAR_Indexer:
         self.articles = {} # hash de articulos --> clave entero (artid), valor: la info necesaria para diferencia los artículos dentro de su fichero
         self.tokenizer = re.compile(r"\W+") # expresion regular para hacer la tokenizacion
         self.show_all = False # valor por defecto, se cambia con self.set_showall()
-
         # PARA LA AMPLIACION
         self.positional = False
         self.semantic = None
@@ -181,61 +188,58 @@ class SAR_Indexer:
         
         """
         if self.model is None:
-            # INICIO CAMBIO EN v1.1
-            print(f"loading {modelname} model ... ",end="", file=sys.stderr)             
-            self.model = create_semantic_model(modelname)
-            print("done!", file=sys.stderr)
-            # FIN CAMBIO EN v1.1
-
-            
+            print(f"loading {modelname} model ... ",end="")
+            self.model = sentence_transformers.SentenceTransformer(modelname)
+            print("done!")
             
 
-    # INICIO CAMBIO EN v1.2
-
-    def update_chuncks(self, txt:str, artid:int):
+    def update_embeddings(self, txt:str, artid:int):
         """
         
-        Añade los chuncks (frases en nuestro caso) del texto "txt" correspondiente al articulo "artid" en la lista de chuncks
+        Añade los vectores (embeddings) de los chuncks del texto (txt) correspondiente al articulo artid a los indices.
         Pasos:
-            1 - extraer los chuncks de txt, en nuestro caso son las frases. Se debe utilizar "sent_tokenize" de la librería "nltk"
-            2 - actualizar los atributos que consideres necesarios: self.chuncks, self.embeddings, self.chunck_index y self.artid_to_emb.
+            1 - extraer los chuncks de txt
+            2 - obtener con el LM los embeddings de cada chunck
+            3 - normalizar los embeddings
+            4 - actualizar: self.chuncks, self.embeddings, self.chunck_index y self.artid_to_emb
         
         """
 
-        #1 - completar
+        self.load_semantic_model()
 
-        #2 - completar
-
-        pass             
+	# COMPLETAR
+        # 1
+        # 2
+        # 3
+        # 4                
         
 
     def create_kdtree(self):
         """
         
-        Crea el tktree utilizando un objeto de la librería SAR_semantics
+        Crea el tktree utilizando la información de los embeddings
         Solo se debe crear una vez despues de indexar todos los documentos
         
-        # 1: Se debe llamar al método fit del modelo semántico
-        # 2: Opcionalmente se puede guardar información del modelo semántico (kdtree y/o embeddings) en el SAR_Indexer
-        
         """
-        print(f"Creating kdtree ...", end="")
-	    # completar
+        print(f"Creating kdtree {len(self.embeddings)}...", end="")
+	    
+        self.kdtree = KDTree(self.embeddings)
         print("done!")
 
 
         
+        
     def solve_semantic_query(self, query:str):
         """
-
-        Resuelve una consulta utilizando el modelo semántico.
+        
+        Resuelve una consulta utilizando el modelo de lenguaje.
         Pasos:
-            1 - utiliza el método query del modelo sémantico
-            2 - devuelve top_k resultados, inicialmente top_k puede ser MAX_EMBEDDINGS
-            3 - si el último resultado tiene una distancia <= self.semantic_threshold 
-                  ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
-            4 - también se puede salir si recuperamos todos los embeddings
-            5 - tenemos una lista de chuncks que se debe pasar a artículos
+            1 - obtiene el embedding normalizado de la consulta
+            2 - extrae los MAX_EMBEDDINGS embeddings más próximos
+            3 - convertir distancias euclideas a similitud coseno
+            4 - considerar solo las similitudes >= que self.semantic_threshold
+            5 - obtener los artids y su máxima similitud
+        
         """
 
         self.load_semantic_model()
@@ -254,22 +258,21 @@ class SAR_Indexer:
 
         Ordena los articulos en la lista 'article' por similitud a la consulta 'query'.
         Pasos:
-            1 - utiliza el método query del modelo sémantico
-            2 - devuelve top_k resultado, inicialmente top_k puede ser MAX_EMBEDDINGS
-            3 - a partir de los chuncks se deben obtener los artículos
-            3 - si entre los artículos recuperados NO estan todos los obtenidos por la RI binaria
-                  ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
-            4 - se utiliza la lista ordenada del kdtree para ordenar la lista "articles"
+            1 - obtener el vector normalizado de la consulta
+            2 - calcular la similitud coseno de la consulta con todos los embeddings de cada artículo
+            3 - ordenar los artículos en función de la mejor similitud.
+            
         """
+        
+        print(self.artid_to_emb.keys())
         
         self.load_semantic_model()
         # COMPLETAR
         # 1
         # 2
         # 3
-        # 4
-    
-    # FIN CAMBIO EN v1.2
+        
+     
 
     ###############################
     ###                         ###
@@ -365,7 +368,6 @@ class SAR_Indexer:
         dependiendo del valor de self.positional se debe ampliar el indexado
 
         """
-
         #docid unico
         docid = len(self.docs)
         self.docs[docid] = filename
@@ -389,31 +391,29 @@ class SAR_Indexer:
             tokens = self.tokenize(article[self.DEFAULT_FIELD])
             if self.positional:
                 for pos, token in enumerate(tokens):
-                    # Alternativa más explícita para la lógica posicional
-                    if token not in self.index:
-                        self.index[token] = [(artid, [pos])]
-                    else:
-                        # El token ya existe
-                        if self.index[token][-1][0] == artid:
-                            # El token ya existe para este artículo, añadir posición
-                            self.index[token][-1][1].append(pos)
-                        else:
-                            # El token existe, pero es la primera vez para este artículo
-                            self.index[token].append((artid, [pos]))
-            else: # self.positional is False
-                for token in set(tokens):
                     if token not in self.index:
                         self.index[token] = []
-                    # Corregido: Añadir si la lista está vacía O si el artid es diferente al último
-                    if not self.index[token] or artid != self.index[token][-1]:
+                    if artid != self.index[token][-1]:
+                        self.index[token][artid] = []
+                    self.index[token][artid].append(pos)
+            else:
+                for token in set(tokens):  # Usamos set para eliminar duplicados, se puede??
+                    if token not in self.index:
+                        self.index[token] = []
+                    if artid != self.index[token][-1]:
                         self.index[token].append(artid)
-
-        #
-        # 
+        # Julián:
+        # Va linea por linea del "all" del articulo, y palabra por palabra, revisando si está en el diccionario para crear una entrada, y agregando el número del documento a su entrada
         # Solo se debe indexar el contenido self.DEFAULT_FIELD
         #
+        # Jorge: asigna docid unico, procesa cada linea y la parsea, comprueba que no estuviera ya el artículo,
+        # asigna artid unico, guarda info para poder localizar el artículo en un docid, indexa en función de self.positionals
         #
-        #
+        # 
+        #################
+        ### COMPLETAR ###
+        #################
+
 
 
     def tokenize(self, text:str):
@@ -440,10 +440,6 @@ class SAR_Indexer:
         Muestra estadisticas de los indices
 
         """
-        pass
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
         print("========================================")
         print("Estadísticas de indexación:")
         print("========================================")
@@ -496,9 +492,6 @@ class SAR_Indexer:
         return: posting list con el resultado de la query
 
         """
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
         
         if not query:
             return [], {}
@@ -543,6 +536,10 @@ class SAR_Indexer:
         if result is None:
             result = []
         return result, {}
+        ########################################
+        ## COMPLETAR PARA TODAS LAS VERSIONES ##
+        ########################################
+
 
 
 
@@ -567,11 +564,11 @@ class SAR_Indexer:
         
         if term in self.index:
             if self.positional:
-                # Si es posicional
+                # Si es posicional, devolvemos solo los artids (las claves)
                 return self.get_positionals(term.lower())
             else:
                 # Si no es posicional, ya tenemos la lista de artids
-                return self.index[term.lower()]
+                return sorted(self.index[term.lower()])
         return []
 
 
@@ -587,76 +584,57 @@ class SAR_Indexer:
         return: posting list
 
         """
+        # terms puede ser un string (un solo termino), en lugar de una lista de terminos
+        if isinstance(terms, str):
+            terms = [terms]
 
-        #################################
-        ## COMPLETAR PARA POSICIONALES ##
-        #################################
-
-        ## hecho en la versión 1 por X, pero creo que la implementación es incorrecta. "Jorge"
-        if not self.positional:
-            raise ValueError("Índice no posicional. No se puede buscar frases exactas.")
-        if not terms:
+        # Caso vacío
+        if not terms or len(terms) == 0:
             return []
+
+        # Caso de un solo término
         if len(terms) == 1:
-            return self.index.get(terms[0], [])
-
-        # Empezamos con la posting del primer término
-        resultado = self.index.get(terms[0], [])
-
-        for i in range(1, len(terms)):
-            siguiente_posting = self.index.get(terms[i], [])
-            if not siguiente_posting:
-                return []  # Si un término no está, no puede estar la frase completa
-            resultado = self.interseccion_posicional_con_punteros(resultado, siguiente_posting)
-            if not resultado:
-                return []  # Cortocircuito si ya no hay coincidencias
-
-        return resultado
+            if terms[0] in self.index:
+                return sorted(self.index[terms[0]].keys())
+            return []
         
-    # Función adicional, PREGUNTADO
-    def interseccion_posicional_con_punteros(posting1:list , posting2: list):
-        """
-        Realiza intersección posicional de dos postings con punteros al estilo merge.
-        Retorna los artid de posting2 donde alguna posición está justo después (p+1)
-        de alguna posición de posting1.
-
-        Parameters:
-            posting1 (dict): {artid: [posiciones]}
-            posting2 (dict): {artid: [posiciones]}
-
-        Returns:
-            dict: {artid: [posiciones de posting2 que cumplen la condición]}
-        """
-        #Jorge
-        resultado = []
-        i = j = 0
-        while i < len(posting1) and j < len(posting2):
-            artid1, positions1 = posting1[i]
-            artid2, positions2 = posting2[j]
-
-            if artid1 == artid2:
-                matches = []
-                m = n = 0
-                while m < len(positions1) and n < len(positions2):
-                    if positions2[n] == positions1[m] + 1:
-                        matches.append(positions2[n])
-                        m += 1
-                        n += 1
-                    elif positions2[n] < positions1[m] + 1:
-                        n += 1
-                    else:
-                        m += 1
-                if matches:
-                    resultado.append((artid1, matches))
-                i += 1
-                j += 1
-            elif artid1 < artid2:
-                i += 1
-            else:
-                j += 1
-        return resultado
-
-
+        # Caso donde terms es una lista de terminos. (Deben encontrarse en posiciones consecutivas)
+        res = []
+        
+        # Verificar que todos los términos existen en el índice
+        for term in terms:
+            if term not in self.index:
+                return []  # Si algún término no existe, no hay resultados
+        
+        # Para cada artículo que contiene el primer término
+        for artid in self.index[terms[0]]:
+            # Verificar si el artículo contiene el resto de términos de la lista 
+            contiene_todos = True
+            for term in terms[1:]:
+                if artid not in self.index[term]:
+                    contiene_todos = False
+                    break
+            
+            if not contiene_todos:
+                continue
+            
+            # Buscar secuencias de posiciones consecutivas
+            for pos in self.index[terms[0]][artid]:
+                secuencia_valida = True
+                for i, term in enumerate(terms[1:], 1):
+                    # Verificar si el término siguiente aparece en la posición consecutiva
+                    # Si el primer termino se encuentra en la posicion pos, el segundo termino deberia aparecer en pos+1
+                    # Para verificar, consultamos si en el indice posicional, hemos almacenado pos+1
+                    # en la lista de ocurrencias del segundo termino del articulo artid.
+                    if pos + i not in self.index[term][artid]:
+                        secuencia_valida = False
+                        break
+                
+                if secuencia_valida:
+                    res.append(artid)
+                    break  # Una vez encontrada una secuencia válida, pasar al siguiente artículo
+        
+            return sorted(res)
 
 
 
@@ -674,14 +652,12 @@ class SAR_Indexer:
         return: posting list con todos los artid exceptos los contenidos en p
 
         """
-        
-        pass
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
         #Jorge:
         #implementación obtenida como una operación All AND NOT P, similar a la implementación de minus_posting
-        all_docs = self.articles.keys()
+        all_docs = sorted(self.articles.keys())
         result = []
         i = j = 0
         while i < len(all_docs) and j < len(p):
@@ -712,11 +688,10 @@ class SAR_Indexer:
 
         """
         
-        pass
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
-        #jorge
+
         #realizado de acuerdo con la descripción en pseudocódigo del tema 1 de la asignatura. Jorge.
         result = []
         i = j = 0
@@ -750,8 +725,6 @@ class SAR_Indexer:
 
         """
 
-        
-        pass
         ########################################################
         ## COMPLETAR PARA TODAS LAS VERSIONES SI ES NECESARIO ##
         ########################################################
@@ -802,10 +775,7 @@ class SAR_Indexer:
             if len(line) > 0 and line[0] != '#':
                 query, ref = line.split('\t')
                 reference = int(ref)
-                # INICIO CAMBIO EN v1.1
-                result, _ = self.solve_query(query)
-                result = len(result)
-                # FIN CAMBIO EN v1.1
+                result, _ = len(self.solve_query(query))
                 if reference == result:
                     print(f'{query}\t{result}')
                 else:
