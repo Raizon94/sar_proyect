@@ -611,7 +611,7 @@ class SAR_Indexer:
             if not resultado:
                 return []  # Cortocircuito si ya no hay coincidencias
 
-        return resultado
+        return [artid for artid, _ in resultado]
         
     # Función adicional, PREGUNTADO
     def interseccion_posicional_con_punteros(posting1:list , posting2: list):
