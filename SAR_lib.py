@@ -194,80 +194,165 @@ class SAR_Indexer:
 
     def update_chuncks(self, txt:str, artid:int):
         """
-        
         Añade los chuncks (frases en nuestro caso) del texto "txt" correspondiente al articulo "artid" en la lista de chuncks
         Pasos:
             1 - extraer los chuncks de txt, en nuestro caso son las frases. Se debe utilizar "sent_tokenize" de la librería "nltk"
             2 - actualizar los atributos que consideres necesarios: self.chuncks, self.embeddings, self.chunck_index y self.artid_to_emb.
-        
         """
-
-        #1 - completar
-
-        #2 - completar
-
-        pass             
+        # 1 - Extraer frases usando sent_tokenize
+        sentences = nltk.sent_tokenize(txt)
+        
+        # 2 - Actualizar atributos necesarios
+        start_idx = len(self.chuncks)
+        
+        # Añadir las frases a self.chuncks
+        self.chuncks.extend(sentences)
+        
+        # Actualizar self.chunck_index (indica qué articulo corresponde a cada frase)
+        self.chunck_index.extend([artid] * len(sentences))
+        
+        # Actualizar self.artid_to_emb (mapeo de artículo a sus frases)
+        if artid not in self.artid_to_emb:
+            self.artid_to_emb[artid] = []
+        
+        # Añadir los índices de las frases para este artículo
+        indices = list(range(start_idx, start_idx + len(sentences)))
+        self.artid_to_emb[artid].extend(indices)
+      
         
 
     def create_kdtree(self):
         """
-        
         Crea el tktree utilizando un objeto de la librería SAR_semantics
         Solo se debe crear una vez despues de indexar todos los documentos
         
         # 1: Se debe llamar al método fit del modelo semántico
         # 2: Opcionalmente se puede guardar información del modelo semántico (kdtree y/o embeddings) en el SAR_Indexer
-        
         """
         print(f"Creating kdtree ...", end="")
-	    # completar
+        
+        if not self.chuncks:
+            print("Error: No hay frases para crear el KDTree!")
+            return
+        
+        # Asegurar que el modelo está cargado
+        self.load_semantic_model()
+        
+        # 1. Llamar al método fit del modelo semántico
+        self.model.fit(self.chuncks)
+        
+        # 2. Guardar información del modelo
+        self.kdtree = self.model.kdtree
+        self.embeddings = self.model.embeddings
+        
         print("done!")
+
 
 
         
     def solve_semantic_query(self, query:str):
         """
-
         Resuelve una consulta utilizando el modelo semántico.
         Pasos:
             1 - utiliza el método query del modelo sémantico
             2 - devuelve top_k resultados, inicialmente top_k puede ser MAX_EMBEDDINGS
             3 - si el último resultado tiene una distancia <= self.semantic_threshold 
-                  ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
+                ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
             4 - también se puede salir si recuperamos todos los embeddings
             5 - tenemos una lista de chuncks que se debe pasar a artículos
         """
-
         self.load_semantic_model()
         
-        # COMPLETAR
+        # Verificar que existe el kdtree
+        if self.kdtree is None:
+            print("Error: KDTree no creado. Use create_kdtree() primero.")
+            return []
+        
+        # 1. Utilizar el método query del modelo semántico
+        top_k = self.MAX_EMBEDDINGS
+        max_size = len(self.chuncks)
+        
+        # 2. Obtener resultados iniciales
+        results = self.model.query(query, top_k=min(top_k, max_size))
+        
+        # 3. Si el último resultado tiene distancia <= threshold, aumentar top_k
+        while (results and results[-1][0] <= self.semantic_threshold and top_k < max_size):
+            top_k *= 2
+            top_k = min(top_k, max_size)  # No exceder el número total de embeddings
+            results = self.model.query(query, top_k=top_k)
+        
+        # 4. Filtrar resultados por threshold
+        if self.semantic_threshold:
+            results = [(dist, idx) for dist, idx in results if dist <= self.semantic_threshold]
+        
+        # 5. Convertir índices de frases a artículos
+        article_set = set()
+        for _, idx in results:
+            if idx < len(self.chunck_index):
+                article_set.add(self.chunck_index[idx])
+        
+        return list(article_set)
 
-        # 1
-        # 2
-        # 3
-        # 4
-        # 5
 
 
     def semantic_reranking(self, query:str, articles: List[int]):
         """
-
         Ordena los articulos en la lista 'article' por similitud a la consulta 'query'.
         Pasos:
             1 - utiliza el método query del modelo sémantico
             2 - devuelve top_k resultado, inicialmente top_k puede ser MAX_EMBEDDINGS
             3 - a partir de los chuncks se deben obtener los artículos
             3 - si entre los artículos recuperados NO estan todos los obtenidos por la RI binaria
-                  ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
+                ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
             4 - se utiliza la lista ordenada del kdtree para ordenar la lista "articles"
         """
-        
         self.load_semantic_model()
-        # COMPLETAR
-        # 1
-        # 2
-        # 3
-        # 4
+        
+        # Verificar que existe el kdtree
+        if self.kdtree is None:
+            print("Error: KDTree no creado. Use create_kdtree() primero.")
+            return articles
+        
+        # 1. Utilizar el método query del modelo semántico
+        top_k = self.MAX_EMBEDDINGS
+        max_size = len(self.chuncks)
+        
+        # Conjunto de artículos que queremos encontrar
+        articles_set = set(articles)
+        found_articles = set()
+        
+        # 2. Obtener resultados iniciales
+        results = self.model.query(query, top_k=min(top_k, max_size))
+        
+        # Mapear resultados a artículos
+        ranked_articles = []
+        for _, idx in results:
+            if idx < len(self.chunck_index):
+                art_id = self.chunck_index[idx]
+                if art_id in articles_set and art_id not in found_articles:
+                    ranked_articles.append(art_id)
+                    found_articles.add(art_id)
+        
+        # 3. Si no encontramos todos los artículos, aumentar top_k
+        while len(found_articles) < len(articles_set) and top_k < max_size:
+            top_k *= 2
+            top_k = min(top_k, max_size)
+            
+            results = self.model.query(query, top_k=top_k)
+            
+            for _, idx in results:
+                if idx < len(self.chunck_index):
+                    art_id = self.chunck_index[idx]
+                    if art_id in articles_set and art_id not in found_articles:
+                        ranked_articles.append(art_id)
+                        found_articles.add(art_id)
+        
+        # 4. Añadir cualquier artículo faltante al final
+        missing_articles = [art_id for art_id in articles if art_id not in found_articles]
+        ranked_articles.extend(missing_articles)
+        
+        return ranked_articles
+
     
     # FIN CAMBIO EN v1.2
 
@@ -818,28 +903,27 @@ class SAR_Indexer:
 
 
     def solve_and_show(self, query:str):
-        """
-        NECESARIO PARA TODAS LAS VERSIONES
-
-        Resuelve una consulta y la muestra junto al numero de resultados
-
-        param:  "query": query que se debe resolver.
-
-        return: el numero de artículo recuperadas, para la opcion -T
-
-        """
         results, _ = self.solve_query(query)
         total = len(results)
         to_show = results if self.show_all else results[:self.SHOW_MAX]
 
         for idx, artid in enumerate(to_show, start=1):
+            # Manejar el caso cuando artid es una lista u otro tipo compuesto
+            if isinstance(artid, (list, tuple)):
+                if artid:  # Si no está vacío
+                    if isinstance(artid[0], (list, tuple)):
+                        # Si es una estructura anidada como [(artid, [posiciones])]
+                        artid = artid[0][0]  # Extraer el artid
+                    else:
+                        # Si es una lista simple
+                        artid = artid[0]
+                else:
+                    continue  # Saltar entradas vacías
+                    
             art = self.articles[artid]
             print(f"{idx}\t{artid}\t{art['title']}\t{art['url']}")
 
         return total
-        ################
-        ## COMPLETAR  ##
-        ################
 
 
 
