@@ -636,40 +636,24 @@ class SAR_Indexer:
 
 
 
-    def get_positionals(self, terms:str, returning_phrase:bool=False):
-        """
-
-        Devuelve la posting list asociada a una secuencia de terminos consecutivos.
-        NECESARIO PARA LAS BÚSQUESAS POSICIONALES
-
-        param:  "terms": lista con los terminos consecutivos para recuperar la posting list.
-
-        return: posting list
-
-        """
-
-        #################################
-        ## COMPLETAR PARA POSICIONALES ##
-        #################################
-
-        ## hecho en la versión 1 por X, pero creo que la implementación es incorrecta. "Jorge"
+    def get_positionals(self, terms, returning_phrase=False):
         if not self.positional:
             raise ValueError("Índice no posicional. No se puede buscar frases exactas.")
+        
+        # Convertir a lista si es un string (un solo término)
+        if isinstance(terms, str):
+            terms = [terms]
+        
         if not terms:
             return []
+            
         if len(terms) == 1:
-            return self.index.get(terms[0], [])
-
-        # Empezamos con la posting del primer término
-        resultado = self.index.get(terms[0], [])
-
-        for i in range(1, len(terms)):
-            siguiente_posting = self.index.get(terms[i], [])
-            if not siguiente_posting:
-                return []  # Si un término no está, no puede estar la frase completa
-            resultado = self.interseccion_posicional_con_punteros(resultado, siguiente_posting)
-            if not resultado:
-                return []  # Cortocircuito si ya no hay coincidencias
+            term = terms[0].lower()  # Normalizar a minúsculas
+            if term in self.index:
+                if returning_phrase:
+                    return [artid for artid, _ in self.index[term]]
+                return self.index[term]
+            return []
 
         # Al final de get_positionals, cuando es una frase:
         if returning_phrase:
