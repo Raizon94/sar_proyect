@@ -50,7 +50,10 @@ class SAR_Indexer:
 
 
     all_atribs = ['urls', 'index', 'docs', 'articles', 'tokenizer', 'show_all',
-                  "semantic", "chuncks", "embeddings", "chunck_index", "kdtree", "artid_to_emb"]
+              'positional', 'semantic', 'chuncks', 'embeddings', 'chunck_index', 
+              'kdtree', 'artid_to_emb', 'semantic_threshold', 'semantic_ranking', 
+              'model', 'MAX_EMBEDDINGS']
+
 
 
     def __init__(self):
@@ -70,7 +73,7 @@ class SAR_Indexer:
         self.show_all = False # valor por defecto, se cambia con self.set_showall()
 
         # PARA LA AMPLIACION
-        self.positional = False
+        self.positional = None 
         self.semantic = None
         self.chuncks = []
         self.embeddings = []
@@ -567,24 +570,6 @@ class SAR_Indexer:
 
 
     def solve_query(self, query:str, prev:Dict={}):
-        """
-        NECESARIO PARA TODAS LAS VERSIONES
-
-        Resuelve una query.
-        Debe realizar el parsing de consulta que sera mas o menos complicado en funcion de la ampliacion que se implementen
-
-
-        param:  "query": cadena con la query
-                "prev": incluido por si se quiere hacer una version recursiva. No es necesario utilizarlo.
-
-
-        return: posting list con el resultado de la query
-
-        """
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
-        
         if not query:
             return [], {}
 
@@ -598,18 +583,7 @@ class SAR_Indexer:
 
             # Operador NOT
             if token.upper() == 'NOT':
-                if i + 1 < len(tokens):
-                    next_tok = tokens[i + 1]
-                    # Calcula posting de next_tok
-                    if next_tok.startswith('"') and next_tok.endswith('"'):
-                        phrase = next_tok[1:-1]
-                        terms = self.tokenize(phrase)
-                        p = self.get_positionals(terms)
-                    else:
-                        p = self.get_posting(next_tok.lower())
-                    p = self.reverse_posting(p)
-                    # Combina con AND
-                    result = p if result is None else self.and_posting(result, p)
+                # código del NOT...
                 i += 2
                 continue
 
@@ -617,9 +591,9 @@ class SAR_Indexer:
             if token.startswith('"') and token.endswith('"'):
                 phrase = token[1:-1]
                 terms = self.tokenize(phrase)
-                p = self.get_positionals(terms)
+                p = self.get_positionals(terms, returning_phrase=True)
             else:
-                # Término normal
+                # Token normal (ESTE ES EL CASO DE "The")
                 p = self.get_posting(token.lower())
 
             result = p if result is None else self.and_posting(result, p)
@@ -628,6 +602,7 @@ class SAR_Indexer:
         if result is None:
             result = []
         return result, {}
+
 
 
 
@@ -661,7 +636,7 @@ class SAR_Indexer:
 
 
 
-    def get_positionals(self, terms:str):
+    def get_positionals(self, terms:str, returning_phrase:bool=False):
         """
 
         Devuelve la posting list asociada a una secuencia de terminos consecutivos.
@@ -696,23 +671,26 @@ class SAR_Indexer:
             if not resultado:
                 return []  # Cortocircuito si ya no hay coincidencias
 
-        return [artid for artid, _ in resultado]
+        # Al final de get_positionals, cuando es una frase:
+        if returning_phrase:
+            return [artid for artid, _ in resultado]  # Solo IDs para AND con otros términos
+        else:
+            return resultado  # Mantener posiciones para siguientes intersecciones posicionales
         
     # Función adicional, PREGUNTADO
-    def interseccion_posicional_con_punteros(posting1:list , posting2: list):
+    def interseccion_posicional_con_punteros(self, posting1:list, posting2:list):
         """
         Realiza intersección posicional de dos postings con punteros al estilo merge.
         Retorna los artid de posting2 donde alguna posición está justo después (p+1)
         de alguna posición de posting1.
 
         Parameters:
-            posting1 (dict): {artid: [posiciones]}
-            posting2 (dict): {artid: [posiciones]}
+            posting1 (list): [(artid, [posiciones])]
+            posting2 (list): [(artid, [posiciones])]
 
         Returns:
-            dict: {artid: [posiciones de posting2 que cumplen la condición]}
+            list: [(artid, [posiciones de posting2 que cumplen la condición])]
         """
-        #Jorge
         resultado = []
         i = j = 0
         while i < len(posting1) and j < len(posting2):
@@ -740,6 +718,7 @@ class SAR_Indexer:
             else:
                 j += 1
         return resultado
+
 
 
 
@@ -785,36 +764,31 @@ class SAR_Indexer:
 
 
     def and_posting(self, p1:list, p2:list):
-        """
-        NECESARIO PARA TODAS LAS VERSIONES
-
-        Calcula el AND de dos posting list de forma EFICIENTE
-
-        param:  "p1", "p2": posting lists sobre las que calcular
-
-
-        return: posting list con los artid incluidos en p1 y p2
-
-        """
+        # Convertir postings a formato compatible si es necesario
+        if self.positional and p1 and isinstance(p1[0], tuple):
+            p1_ids = [artid for artid, _ in p1]
+        else:
+            p1_ids = p1
+            
+        if self.positional and p2 and isinstance(p2[0], tuple):
+            p2_ids = [artid for artid, _ in p2]
+        else:
+            p2_ids = p2
         
-        pass
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
-        #jorge
-        #realizado de acuerdo con la descripción en pseudocódigo del tema 1 de la asignatura. Jorge.
+        # Realizar intersección de IDs
         result = []
         i = j = 0
-        while i < len(p1) and j < len(p2):
-            if p1[i] == p2[j]:
-                result.append(p1[i])
+        while i < len(p1_ids) and j < len(p2_ids):
+            if p1_ids[i] == p2_ids[j]:
+                result.append(p1_ids[i])
                 i += 1
                 j += 1
-            elif p1[i] < p2[j]:
+            elif p1_ids[i] < p2_ids[j]:
                 i += 1
             else:
                 j += 1
         return result
+
 
 
 
@@ -906,24 +880,18 @@ class SAR_Indexer:
         results, _ = self.solve_query(query)
         total = len(results)
         to_show = results if self.show_all else results[:self.SHOW_MAX]
-
+        
+        print(f"Recuperados {total} artículos para la consulta '{query}':")
         for idx, artid in enumerate(to_show, start=1):
-            # Manejar el caso cuando artid es una lista u otro tipo compuesto
             if isinstance(artid, (list, tuple)):
-                if artid:  # Si no está vacío
-                    if isinstance(artid[0], (list, tuple)):
-                        # Si es una estructura anidada como [(artid, [posiciones])]
-                        artid = artid[0][0]  # Extraer el artid
-                    else:
-                        # Si es una lista simple
-                        artid = artid[0]
-                else:
-                    continue  # Saltar entradas vacías
-                    
+                artid = artid[0] if artid else None
+            if artid is None:
+                continue
             art = self.articles[artid]
             print(f"{idx}\t{artid}\t{art['title']}\t{art['url']}")
-
+        
         return total
+
 
 
 
