@@ -585,8 +585,14 @@ class SAR_Indexer:
         """
         if not query:
             return [], {}
-
-        # Extrae frases ("…") o tokens sueltos
+        
+        # Caso especial: consulta que es solo una frase entre comillas
+        if query.startswith('"') and query.endswith('"') and query.count('"') == 2:
+            phrase = query[1:-1]
+            terms = self.tokenize(phrase)
+            return self.get_positionals(terms, returning_phrase=True), {}
+        
+        # Procesamiento normal para consultas más complejas
         tokens = re.findall(r'"[^"]+"|\S+', query)
         result = None
         i = 0
@@ -599,51 +605,18 @@ class SAR_Indexer:
                 if i + 1 < len(tokens):
                     next_tok = tokens[i + 1]
                     if next_tok.startswith('"') and next_tok.endswith('"'):
-                        # Es una frase negada
                         phrase = next_tok[1:-1]
                         terms = self.tokenize(phrase)
-                        if self.positional:
-                            # Índice posicional: buscar términos consecutivos
-                            p = self.get_positionals(terms, returning_phrase=True)
-                        else:
-                            # Índice no posicional: AND de términos
-                            p = None
-                            for term in terms:
-                                term_posting = self.get_posting(term.lower())
-                                p = term_posting if p is None else self.and_posting(p, term_posting)
-                            if p is None:
-                                p = []
+                        p = self.get_positionals(terms, returning_phrase=True)
                     else:
-                        # Es un término individual negado
                         p = self.get_posting(next_tok.lower())
-                    
-                    # Aplicar operador NOT
                     p = self.reverse_posting(p)
                     result = p if result is None else self.and_posting(result, p)
                 i += 2
                 continue
 
-            # Frase entre comillas
-            if token.startswith('"') and token.endswith('"'):
-                phrase = token[1:-1]
-                terms = self.tokenize(phrase)
-                if terms:
-                    if self.positional:
-                        # Índice posicional: buscar términos consecutivos
-                        p = self.get_positionals(terms, returning_phrase=True)
-                    else:
-                        # Índice no posicional: AND de términos
-                        p = None
-                        for t in terms:
-                            term_posting = self.get_posting(t.lower())
-                            p = term_posting if p is None else self.and_posting(p, term_posting)
-                        if p is None:
-                            p = []
-                else:
-                    p = []
-            else:
-                # Token normal (un solo término)
-                p = self.get_posting(token.lower())
+                # Token normal
+            p = self.get_posting(token.lower())
 
             result = p if result is None else self.and_posting(result, p)
             i += 1
