@@ -569,62 +569,66 @@ class SAR_Indexer:
     ###################################
 
 
-    def solve_query(self, query:str, prev:Dict={}):
+    def solve_query(self, query: str, prev: Dict = {}):
         """
-        NECESARIO PARA TODAS LAS VERSIONES
+        Resuelve una consulta booleana que puede contener:
+        - frases entre comillas ("..."),
+        - operadores NOT,
+        - términos normales (sin operador, se considera AND implícito).
 
-        Resuelve una consulta.
-        Debe realizar el parsing de consulta que puede incluir operadores AND y NOT
-        También debe resolver consultas con términos consecutivos (frases entre comillas).
-        
-        param:  "query": cadena con la consulta
-                "prev": diccionario con los resultados previos, solo necesario para la recursión.
-                
-        return: posting list con los artículos relevantes para la consulta
-                diccionario para almacenar las posting list de términos utilizados.
+        Param:
+            query (str): consulta
+            prev (Dict): no se usa, para compatibilidad futura
+
+        Return:
+            (posting_list, dict)
         """
         if not query:
             return [], {}
-        
-        # Caso especial: consulta que es solo una frase entre comillas
-        if query.startswith('"') and query.endswith('"') and query.count('"') == 2:
-            phrase = query[1:-1]
-            terms = self.tokenize(phrase)
-            return self.get_positionals(terms, returning_phrase=True), {}
-        
-        # Procesamiento normal para consultas más complejas
+
         tokens = re.findall(r'"[^"]+"|\S+', query)
         result = None
         i = 0
+        print("---------------------Tokens en solve_query--------------")
+        print (tokens)
+        print("--------------------------------------------------------")
 
         while i < len(tokens):
             token = tokens[i]
 
-            # Operador NOT
-            if token.upper() == 'NOT':
-                if i + 1 < len(tokens):
-                    next_tok = tokens[i + 1]
-                    if next_tok.startswith('"') and next_tok.endswith('"'):
-                        phrase = next_tok[1:-1]
-                        terms = self.tokenize(phrase)
-                        p = self.get_positionals(terms, returning_phrase=True)
-                    else:
-                        p = self.get_posting(next_tok.lower())
-                    p = self.reverse_posting(p)
-                    result = p if result is None else self.and_posting(result, p)
+            # NOT operador
+            if token == 'NOT':
+                if i + 1 >= len(tokens):
+                    break  # consulta mal formada
+                next_tok = tokens[i + 1]
+                if next_tok.startswith('"') and next_tok.endswith('"'):
+                    phrase = next_tok[1:-1]
+                    terms = self.tokenize(phrase)
+                    p = self.get_positionals(terms)
+                else:
+                    p = self.get_posting(next_tok.lower())
+                p = self.reverse_posting(p)
+                result = p if result is None else self.and_posting(result, p)
                 i += 2
                 continue
 
-                # Token normal
-            p = self.get_posting(token.lower())
+            # Frase entre comillas
+            if token.startswith('"') and token.endswith('"'):
+                phrase = token[1:-1]
+                terms = self.tokenize(phrase)
+                p = self.get_positionals(terms)
+
+            else:
+                # Término individual
+                p = self.get_posting(token.lower())
 
             result = p if result is None else self.and_posting(result, p)
             i += 1
 
         if result is None:
             result = []
-        return result, {}
 
+        return result, {}
 
 
 
@@ -660,49 +664,43 @@ class SAR_Indexer:
 
 
 
-    def get_positionals(self, terms, returning_phrase=False):
+    def get_positionals(self, terms):
+        """
+
+        Devuelve la posting list asociada a una secuencia de terminos consecutivos.
+        NECESARIO PARA LAS BÚSQUESAS POSICIONALES
+
+        param:  "terms": lista con los terminos consecutivos para recuperar la posting list.
+
+        return: posting list
+
+        """
         if not self.positional:
             raise ValueError("Índice no posicional. No se puede buscar frases exactas.")
-        
-        # Convertir a lista si es un string (un solo término)
+
         if isinstance(terms, str):
             terms = [terms]
-        
-        print(terms)  # Línea de depuración - mantener temporalmente
-        
+        terms = [t.lower() for t in terms]
+
         if not terms:
             return []
-            
-        if len(terms) == 1:
-            term = terms[0].lower()  # Normalizar a minúsculas
-            if term in self.index:
-                if returning_phrase:
-                    return [artid for artid, _ in self.index[term]]
-                return self.index[term]
-            return []
-        
-        # AQUÍ ESTÁ EL PROBLEMA - Verificar si el primer término existe
-        term0 = terms[0].lower()
-        if term0 not in self.index:
-            return []  # El primer término no existe en el índice
-            
-        resultado = self.index[term0]  # Ya verificamos que existe
-        
-        for i in range(1, len(terms)):
-            term_i = terms[i].lower()
-            if term_i not in self.index:
-                return []  # Si un término no está, no puede estar la frase completa
-                
-            siguiente_posting = self.index[term_i]
-            resultado = self.interseccion_posicional_con_punteros(resultado, siguiente_posting)
-            if not resultado:
-                return []  # Cortocircuito si ya no hay coincidencias
 
-        # Al final de get_positionals, cuando es una frase:
-        if returning_phrase:
-            return [artid for artid, _ in resultado]  # Solo IDs para AND con otros términos
-        else:
-            return resultado  # Mantener posiciones para siguientes intersecciones posicionales
+        if len(terms) == 1:
+            return [artid for artid, _ in self.index.get(terms[0], [])]
+
+        resultado = self.index.get(terms[0])
+        if not resultado:
+            return []
+
+        for i in range(1, len(terms)):
+            siguiente = self.index.get(terms[i])
+            if not siguiente:
+                return []
+            resultado = self.interseccion_posicional_con_punteros(resultado, siguiente)
+            if not resultado:
+                return []
+
+        return [artid for artid, _ in resultado]
 
     # Función adicional, PREGUNTADO
     def interseccion_posicional_con_punteros(self, posting1:list, posting2:list):
