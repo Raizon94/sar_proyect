@@ -570,6 +570,19 @@ class SAR_Indexer:
 
 
     def solve_query(self, query:str, prev:Dict={}):
+        """
+        NECESARIO PARA TODAS LAS VERSIONES
+
+        Resuelve una consulta.
+        Debe realizar el parsing de consulta que puede incluir operadores AND y NOT
+        También debe resolver consultas con términos consecutivos (frases entre comillas).
+        
+        param:  "query": cadena con la consulta
+                "prev": diccionario con los resultados previos, solo necesario para la recursión.
+                
+        return: posting list con los artículos relevantes para la consulta
+                diccionario para almacenar las posting list de términos utilizados.
+        """
         if not query:
             return [], {}
 
@@ -589,10 +602,22 @@ class SAR_Indexer:
                         # Es una frase negada
                         phrase = next_tok[1:-1]
                         terms = self.tokenize(phrase)
-                        p = self.get_positionals(terms, returning_phrase=True)
+                        if self.positional:
+                            # Índice posicional: buscar términos consecutivos
+                            p = self.get_positionals(terms, returning_phrase=True)
+                        else:
+                            # Índice no posicional: AND de términos
+                            p = None
+                            for term in terms:
+                                term_posting = self.get_posting(term.lower())
+                                p = term_posting if p is None else self.and_posting(p, term_posting)
+                            if p is None:
+                                p = []
                     else:
                         # Es un término individual negado
                         p = self.get_posting(next_tok.lower())
+                    
+                    # Aplicar operador NOT
                     p = self.reverse_posting(p)
                     result = p if result is None else self.and_posting(result, p)
                 i += 2
@@ -602,15 +627,23 @@ class SAR_Indexer:
             if token.startswith('"') and token.endswith('"'):
                 phrase = token[1:-1]
                 terms = self.tokenize(phrase)
-                p = self.get_positionals(terms, returning_phrase=True)
+                if terms:
+                    if self.positional:
+                        # Índice posicional: buscar términos consecutivos
+                        p = self.get_positionals(terms, returning_phrase=True)
+                    else:
+                        # Índice no posicional: AND de términos
+                        p = None
+                        for t in terms:
+                            term_posting = self.get_posting(t.lower())
+                            p = term_posting if p is None else self.and_posting(p, term_posting)
+                        if p is None:
+                            p = []
+                else:
+                    p = []
             else:
                 # Token normal (un solo término)
-                if self.positional:
-                    # Para índice posicional, pasamos el término como string
-                    p = self.get_positionals(token.lower())
-                else:
-                    # Para índice no posicional
-                    p = self.get_posting(token.lower())
+                p = self.get_posting(token.lower())
 
             result = p if result is None else self.and_posting(result, p)
             i += 1
@@ -618,6 +651,7 @@ class SAR_Indexer:
         if result is None:
             result = []
         return result, {}
+
 
 
 
