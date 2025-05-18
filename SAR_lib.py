@@ -661,6 +661,8 @@ class SAR_Indexer:
         if isinstance(terms, str):
             terms = [terms]
         
+        print(terms)  # Línea de depuración - mantener temporalmente
+        
         if not terms:
             return []
             
@@ -671,12 +673,20 @@ class SAR_Indexer:
                     return [artid for artid, _ in self.index[term]]
                 return self.index[term]
             return []
-
-        # Al final de get_positionals, cuando es una frase:
+        
+        # AQUÍ ESTÁ EL PROBLEMA - Verificar si el primer término existe
+        term0 = terms[0].lower()
+        if term0 not in self.index:
+            return []  # El primer término no existe en el índice
+            
+        resultado = self.index[term0]  # Ya verificamos que existe
+        
         for i in range(1, len(terms)):
-            siguiente_posting = self.index.get(terms[i].lower(), [])
-            if not siguiente_posting:
+            term_i = terms[i].lower()
+            if term_i not in self.index:
                 return []  # Si un término no está, no puede estar la frase completa
+                
+            siguiente_posting = self.index[term_i]
             resultado = self.interseccion_posicional_con_punteros(resultado, siguiente_posting)
             if not resultado:
                 return []  # Cortocircuito si ya no hay coincidencias
@@ -685,7 +695,8 @@ class SAR_Indexer:
         if returning_phrase:
             return [artid for artid, _ in resultado]  # Solo IDs para AND con otros términos
         else:
-            return resultado
+            return resultado  # Mantener posiciones para siguientes intersecciones posicionales
+
     # Función adicional, PREGUNTADO
     def interseccion_posicional_con_punteros(self, posting1:list, posting2:list):
         """
