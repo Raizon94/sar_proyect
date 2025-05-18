@@ -583,7 +583,18 @@ class SAR_Indexer:
 
             # Operador NOT
             if token.upper() == 'NOT':
-                # código del NOT...
+                if i + 1 < len(tokens):
+                    next_tok = tokens[i + 1]
+                    if next_tok.startswith('"') and next_tok.endswith('"'):
+                        # Es una frase negada
+                        phrase = next_tok[1:-1]
+                        terms = self.tokenize(phrase)
+                        p = self.get_positionals(terms, returning_phrase=True)
+                    else:
+                        # Es un término individual negado
+                        p = self.get_posting(next_tok.lower())
+                    p = self.reverse_posting(p)
+                    result = p if result is None else self.and_posting(result, p)
                 i += 2
                 continue
 
@@ -593,8 +604,13 @@ class SAR_Indexer:
                 terms = self.tokenize(phrase)
                 p = self.get_positionals(terms, returning_phrase=True)
             else:
-                # Token normal (ESTE ES EL CASO DE "The")
-                p = self.get_posting(token.lower())
+                # Token normal (un solo término)
+                if self.positional:
+                    # Para índice posicional, pasamos el término como string
+                    p = self.get_positionals(token.lower())
+                else:
+                    # Para índice no posicional
+                    p = self.get_posting(token.lower())
 
             result = p if result is None else self.and_posting(result, p)
             i += 1
@@ -602,6 +618,7 @@ class SAR_Indexer:
         if result is None:
             result = []
         return result, {}
+
 
 
 
