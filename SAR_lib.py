@@ -750,36 +750,34 @@ class SAR_Indexer:
 
         Devuelve una posting list con todas las noticias excepto las contenidas en p.
         Util para resolver las queries con NOT.
-
-
-        param:  "p": posting list
-
-
-        return: posting list con todos los artid exceptos los contenidos en p
-
         """
+        all_docs = list(self.articles.keys())  # Convertir a lista para hacerlo indexable
+        all_docs.sort()  # Ordenar para el algoritmo merge
         
-        pass
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
-        #Jorge:
-        #implementación obtenida como una operación All AND NOT P, similar a la implementación de minus_posting
-        all_docs = self.articles.keys()
+        # Para índice posicional, extraer solo los artIDs
+        if p and isinstance(p[0], tuple):
+            p_ids = [artid for artid, _ in p]
+        else:
+            p_ids = p
+            
         result = []
         i = j = 0
-        while i < len(all_docs) and j < len(p):
-            if all_docs[i] < p[j]:
+        
+        while i < len(all_docs) and j < len(p_ids):
+            if all_docs[i] < p_ids[j]:
                 result.append(all_docs[i])
                 i += 1
-            elif all_docs[i] == p[j]:
+            elif all_docs[i] == p_ids[j]:
                 i += 1
                 j += 1
             else:
                 j += 1
+                
         # Añadir los documentos restantes
         result.extend(all_docs[i:])
         return result
+
+
 
 
 
