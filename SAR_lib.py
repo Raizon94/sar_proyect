@@ -752,7 +752,7 @@ class SAR_Indexer:
         Util para resolver las queries con NOT.
         """
         all_docs = list(self.articles.keys())  # Convertir a lista para hacerlo indexable
-        all_docs.sort()  # Ordenar para el algoritmo merge
+        #all_docs.sort()  # Ordenar para el algoritmo merge
         
         # Para índice posicional, extraer solo los artIDs
         if p and isinstance(p[0], tuple):
