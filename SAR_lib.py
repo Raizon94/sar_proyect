@@ -386,7 +386,7 @@ class SAR_Indexer:
         Recorre recursivamente el directorio "root"  y indexa su contenido
         los argumentos adicionales "**args" solo son necesarios para las funcionalidades ampliadas
 
-        """
+        """ 
         self.positional = args['positional']
         self.semantic = args['semantic']
         if self.semantic is True:
@@ -460,6 +460,12 @@ class SAR_Indexer:
 
         for i, line in enumerate(open(filename)):
             article = self.parse_article(line)
+
+            # Preguntar al profesor si debemos evitar repetidos
+            #if self.already_in_index(article):
+                # Si ya está indexado, no lo volvemos a indexar
+                #continue
+
             # Asignamos un identificador único al artículo
             artid = len(self.articles)
             # Guardamos la URL para evitar duplicados
@@ -471,6 +477,7 @@ class SAR_Indexer:
                 'title': article['title'],
                 'url': article['url']
             }
+
             tokens = self.tokenize(article[self.DEFAULT_FIELD])
             if self.positional:
                 for pos, token in enumerate(tokens):
