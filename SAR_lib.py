@@ -492,7 +492,7 @@ class SAR_Indexer:
                 for token in set(tokens):
                     if token not in self.index:
                         self.index[token] = []
-                    # Corregido: Añadir si la lista está vacía O si el artid es diferente al último
+                    # Corregido: Añadir si la lista está vacía ó si el artid es diferente al último
                     if not self.index[token] or artid != self.index[token][-1]:
                         self.index[token].append(artid)
 
@@ -536,7 +536,7 @@ class SAR_Indexer:
         print("Estadísticas de indexación:")
         print("========================================")
         print(f"Número total de artículos indexados: {len(self.articles)}")
-        print(f"Número total de documentos (ficheros) indexados: {len(self.docs)}")
+        print(f"Número total de indexed files: {len(self.docs)}")
         print(f"Tamaño del vocabulario (términos únicos): {len(self.index)}")
         print(f"Número total de URLs únicas: {len(self.urls)}")
         
