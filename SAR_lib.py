@@ -296,7 +296,15 @@ class SAR_Indexer:
 
     def semantic_reranking(self, query: str, articles: List[int]):
         """
+
         Ordena los articulos en la lista 'article' por similitud a la consulta 'query'.
+        Pasos:
+            1 - utiliza el método query del modelo sémantico
+            2 - devuelve top_k resultado, inicialmente top_k puede ser MAX_EMBEDDINGS
+            3 - a partir de los chuncks se deben obtener los artículos
+            3 - si entre los artículos recuperados NO estan todos los obtenidos por la RI binaria
+                  ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
+            4 - se utiliza la lista ordenada del kdtree para ordenar la lista "articles"
         """
         # Cargar modelo semántico si no está cargado
         self.load_semantic_model()
@@ -646,7 +654,6 @@ class SAR_Indexer:
             return re_ranked_results, {}
         else:
             # Modo 3: Resultados de la búsqueda booleana/posicional estándar (ni -S puro, ni -R)
-            # print(f"DEBUG: solve_query -> MODO: Devolviendo resultados de Búsqueda Booleana/Posicional Estándار ({len(binary_search_results)}) para: '{query}'")
             return result, {}
 
 
@@ -727,7 +734,7 @@ class SAR_Indexer:
 
         return [artid for artid, _ in resultado]
 
-    # Función adicional, PREGUNTADO
+    # Función adicional
     def interseccion_posicional_con_punteros(self, posting1:list, posting2:list):
         """
         Realiza intersección posicional de dos postings con punteros al estilo merge.
@@ -783,21 +790,15 @@ class SAR_Indexer:
         Realizado de acuerdo con los algoritmos vistos en el tema 1.
         """
         all_docs = list(self.articles.keys())  # Convertir a lista para hacerlo indexable
-        
-        # Para índice posicional, extraer solo los artIDs
-        if p and isinstance(p[0], tuple):
-            p_ids = [artid for artid, _ in p]
-        else:
-            p_ids = p
             
         result = []
         i = j = 0
         
-        while i < len(all_docs) and j < len(p_ids):
-            if all_docs[i] < p_ids[j]:
+        while i < len(all_docs) and j < len(p):
+            if all_docs[i] < p[j]:
                 result.append(all_docs[i])
                 i += 1
-            elif all_docs[i] == p_ids[j]:
+            elif all_docs[i] == p[j]:
                 i += 1
                 j += 1
             else:
@@ -932,12 +933,11 @@ class SAR_Indexer:
         """
         results, _ = self.solve_query(query)
         total = len(results)
+        #obtengo cantidad de resultados para mostrar
         to_show = results if self.show_all else results[:self.SHOW_MAX]
         
         print(f"Recuperados {total} artículos para la consulta '{query}':")
         for idx, artid in enumerate(to_show, start=1):
-            if isinstance(artid, (list, tuple)):
-                artid = artid[0] if artid else None
             if artid is None:
                 continue
             art = self.articles[artid]
