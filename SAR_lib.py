@@ -239,7 +239,7 @@ class SAR_Indexer:
             return
         
         # Asegurar que el modelo está cargado
-        self.load_semantic_model()
+        #self.load_semantic_model()
         
         # 1. Llamar al método fit del modelo semántico
         self.model.fit(self.chuncks)
@@ -264,8 +264,7 @@ class SAR_Indexer:
             4 - también se puede salir si recuperamos todos los embeddings
             5 - tenemos una lista de chuncks que se debe pasar a artículos
         """
-        self.load_semantic_model()
-        
+    
         # Verificar que existe el kdtree
         if self.kdtree is None:
             print("Error: KDTree no creado. Use create_kdtree() primero.")
@@ -309,7 +308,6 @@ class SAR_Indexer:
                 ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
             4 - se utiliza la lista ordenada del kdtree para ordenar la lista "articles"
         """
-        self.load_semantic_model()
         
         # Verificar que existe el kdtree
         if self.kdtree is None:
@@ -412,6 +410,15 @@ class SAR_Indexer:
         #####################################################
         ## COMPLETAR SI ES NECESARIO FUNCIONALIDADES EXTRA ##
         #####################################################
+        # --- INICIO MODIFICACIÓN PARA SEMÁNTICA ---
+        # Después de procesar todos los ficheros, si la indexación semántica está activa
+        # y tenemos frases (chuncks), creamos el KDTree.
+        if self.semantic:
+            if self.chuncks: # Solo crear KDTree si hay frases
+                self.create_kdtree()
+            else:
+                print("Warning: Semantic indexing enabled, but no chuncks found to create KDTree.", file=sys.stderr)
+        # --- FIN MODIFICACIÓN PARA SEMÁNTICA ---
         
         
     def parse_article(self, raw_line:str) -> Dict[str, str]:
@@ -461,8 +468,9 @@ class SAR_Indexer:
         for i, line in enumerate(open(filename)):
             article = self.parse_article(line)
             # Comprobamos si el artículo ya está indexado
-            if self.already_in_index(article):
-                continue
+            ### Provisionalmente no comprobamos
+            """if self.already_in_index(article):
+                continue"""
             # Asignamos un identificador único al artículo
             artid = len(self.articles)
             # Guardamos la URL para evitar duplicados
@@ -495,13 +503,12 @@ class SAR_Indexer:
                     # Corregido: Añadir si la lista está vacía ó si el artid es diferente al último
                     if not self.index[token] or artid != self.index[token][-1]:
                         self.index[token].append(artid)
-
-        #
-        # 
-        # Solo se debe indexar el contenido self.DEFAULT_FIELD
-        #
-        #
-        #
+            # --- INICIO MODIFICACIÓN PARA SEMÁNTICA ---
+            # Si la indexación semántica está activada, actualizamos los chuncks (frases)
+            if self.semantic:
+                # El contenido a pasar a update_chuncks es el texto completo del artículo del cual extraer frases
+                self.update_chuncks(article[self.DEFAULT_FIELD], artid) 
+            # --- FIN MODIFICACIÓN PARA SEMÁNTICA ---
 
 
     def tokenize(self, text:str):
@@ -583,15 +590,23 @@ class SAR_Indexer:
         Return:
             (posting_list, dict)
         """
+
+        if self.semantic_threshold is not None and not self.semantic_ranking:
+            # print(f"DEBUG: solve_query -> Desviando a búsqueda semántica pura para: '{query}'")
+            semantic_results_artids = self.solve_semantic_query(query)
+            # solve_query debe devolver una tupla (list, dict)
+            return semantic_results_artids, {}
         if not query:
             return [], {}
 
         tokens = re.findall(r'"[^"]+"|\S+', query)
         result = None
         i = 0
-        print("---------------------Tokens en solve_query--------------")
-        print (tokens)
-        print("--------------------------------------------------------")
+
+        #Para testear
+        #print("---------------------Tokens en solve_query--------------")
+        #print (tokens)
+        #print("--------------------------------------------------------")
 
         while i < len(tokens):
             token = tokens[i]
@@ -627,8 +642,20 @@ class SAR_Indexer:
 
         if result is None:
             result = []
+        
+        if self.semantic_ranking:
+            # print(f"DEBUG: solve_query -> MODO: Re-ranking Semántico (-R) aplicado a {len(binary_search_results)} resultados binarios para: '{query}'")
+            if result == []: # Si no hay resultados binarios, no hay nada que re-rankear
+                return result, {}
+            
+            # semantic_reranking espera (query, List[artids]) y devuelve List[artids]
+            re_ranked_results = self.semantic_reranking(query, result)
+            return re_ranked_results, {}
+        else:
+            # Modo 3: Resultados de la búsqueda booleana/posicional estándar (ni -S puro, ni -R)
+            # print(f"DEBUG: solve_query -> MODO: Devolviendo resultados de Búsqueda Booleana/Posicional Estándار ({len(binary_search_results)}) para: '{query}'")
+            return result, {}
 
-        return result, {}
 
 
 
