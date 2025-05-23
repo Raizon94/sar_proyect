@@ -467,9 +467,8 @@ class SAR_Indexer:
         for i, line in enumerate(open(filename)):
             article = self.parse_article(line)
             # Comprobamos si el artículo ya está indexado
-            ### Provisionalmente no comprobamos
-            """if self.already_in_index(article):
-                continue"""
+            if self.already_in_index(article):
+                continue
             # Asignamos un identificador único al artículo
             artid = len(self.articles)
             # Guardamos la URL para evitar duplicados
