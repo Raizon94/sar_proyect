@@ -238,9 +238,6 @@ class SAR_Indexer:
             print("Error: No hay frases para crear el KDTree!")
             return
         
-        # Asegurar que el modelo está cargado
-        #self.load_semantic_model()
-        
         # 1. Llamar al método fit del modelo semántico
         self.model.fit(self.chuncks)
         
@@ -410,6 +407,8 @@ class SAR_Indexer:
         #####################################################
         ## COMPLETAR SI ES NECESARIO FUNCIONALIDADES EXTRA ##
         #####################################################
+
+
         # --- INICIO MODIFICACIÓN PARA SEMÁNTICA ---
         # Después de procesar todos los ficheros, si la indexación semántica está activa
         # y tenemos frases (chuncks), creamos el KDTree.
@@ -504,6 +503,7 @@ class SAR_Indexer:
                     # Corregido: Añadir si la lista está vacía ó si el artid es diferente al último
                     if not self.index[token] or artid != self.index[token][-1]:
                         self.index[token].append(artid)
+
             # --- INICIO MODIFICACIÓN PARA SEMÁNTICA ---
             # Si la indexación semántica está activada, actualizamos los chuncks (frases)
             if self.semantic:
@@ -705,6 +705,8 @@ class SAR_Indexer:
         """
         if not self.positional:
             raise ValueError("Índice no posicional. No se puede buscar frases exactas.")
+        
+        #Comprobamos formato de la entrada
 
         if isinstance(terms, str):
             terms = [terms]
@@ -713,6 +715,7 @@ class SAR_Indexer:
         if not terms:
             return []
 
+        #Si es un solo término
         if len(terms) == 1:
             return [artid for artid, _ in self.index.get(terms[0], [])]
 
@@ -720,6 +723,8 @@ class SAR_Indexer:
         if not resultado:
             return []
 
+
+        #si son n términos, n>1, hacemos n-1 llamadas a interseccion_posicional_con_punteros
         for i in range(1, len(terms)):
             siguiente = self.index.get(terms[i])
             if not siguiente:
@@ -783,9 +788,9 @@ class SAR_Indexer:
 
         Devuelve una posting list con todas las noticias excepto las contenidas en p.
         Util para resolver las queries con NOT.
+        Realizado de acuerdo con los algoritmos vistos en el tema 1.
         """
         all_docs = list(self.articles.keys())  # Convertir a lista para hacerlo indexable
-        #all_docs.sort()  # Ordenar para el algoritmo merge
         
         # Para índice posicional, extraer solo los artIDs
         if p and isinstance(p[0], tuple):
@@ -815,26 +820,24 @@ class SAR_Indexer:
 
 
     def and_posting(self, p1:list, p2:list):
-        # Convertir postings a formato compatible si es necesario
-        if self.positional and p1 and isinstance(p1[0], tuple):
-            p1_ids = [artid for artid, _ in p1]
-        else:
-            p1_ids = p1
-            
-        if self.positional and p2 and isinstance(p2[0], tuple):
-            p2_ids = [artid for artid, _ in p2]
-        else:
-            p2_ids = p2
+        """
+        NECESARIO PARA TODAS LAS VERSIONES
+
+        Calcula el AND de dos posting list de forma EFICIENTE. Realizado de acuerdo con algoritmo visto en tema 1.
+        param:  "p1", "p2": posting lists sobre las que calcula
+        return: posting list con los artid incluidos en p1 y p2
+
+        """
         
         # Realizar intersección de IDs
         result = []
         i = j = 0
-        while i < len(p1_ids) and j < len(p2_ids):
-            if p1_ids[i] == p2_ids[j]:
-                result.append(p1_ids[i])
+        while i < len(p1) and j < len(p2):
+            if p1[i] == p2[j]:
+                result.append(p1[i])
                 i += 1
                 j += 1
-            elif p1_ids[i] < p2_ids[j]:
+            elif p1[i] < p2[j]:
                 i += 1
             else:
                 j += 1
@@ -852,6 +855,7 @@ class SAR_Indexer:
 
         Calcula el except de dos posting list de forma EFICIENTE.
         Esta funcion se incluye por si es util, no es necesario utilizarla.
+        Realizado de acuerdo con explicación al final del tema 1.
 
         param:  "p1", "p2": posting lists sobre las que calcular
 
@@ -859,14 +863,10 @@ class SAR_Indexer:
         return: posting list con los artid incluidos de p1 y no en p2
 
         """
-
-        
-        pass
         ########################################################
         ## COMPLETAR PARA TODAS LAS VERSIONES SI ES NECESARIO ##
         ########################################################
-        #Jorge: implementación obtenida de acuerdo con el ejercicio realizado al final del tema 1: a partir de las posting list de los términos A y B
-        # proporciona el resultado de posting_list(A) AND NOT posting_list(B)
+        
         result = []
         i = j = 0
         while i < len(p1) and j < len(p2):
@@ -928,6 +928,16 @@ class SAR_Indexer:
 
 
     def solve_and_show(self, query:str):
+        """
+        NECESARIO PARA TODAS LAS VERSIONES
+
+        Resuelve una consulta y la muestra junto al numero de resultados
+
+        param:  "query": query que se debe resolver.
+
+        return: el numero de artículo recuperadas, para la opcion -T
+
+        """
         results, _ = self.solve_query(query)
         total = len(results)
         to_show = results if self.show_all else results[:self.SHOW_MAX]
