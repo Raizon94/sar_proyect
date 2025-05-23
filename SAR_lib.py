@@ -294,62 +294,55 @@ class SAR_Indexer:
 
 
 
-    def semantic_reranking(self, query:str, articles: List[int]):
+    def semantic_reranking(self, query: str, articles: List[int]):
         """
         Ordena los articulos en la lista 'article' por similitud a la consulta 'query'.
-        Pasos:
-            1 - utiliza el método query del modelo sémantico
-            2 - devuelve top_k resultado, inicialmente top_k puede ser MAX_EMBEDDINGS
-            3 - a partir de los chuncks se deben obtener los artículos
-            3 - si entre los artículos recuperados NO estan todos los obtenidos por la RI binaria
-                ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
-            4 - se utiliza la lista ordenada del kdtree para ordenar la lista "articles"
         """
+        # Cargar modelo semántico si no está cargado
+        self.load_semantic_model()
         
         # Verificar que existe el kdtree
         if self.kdtree is None:
             print("Error: KDTree no creado. Use create_kdtree() primero.")
             return articles
         
-        # 1. Utilizar el método query del modelo semántico
-        top_k = self.MAX_EMBEDDINGS
-        max_size = len(self.chuncks)
+        # Si no hay chunks o artículos, devolver la lista original
+        if len(self.chuncks) == 0 or len(articles) == 0:
+            return articles
         
-        # Conjunto de artículos que queremos encontrar
+        # 1. Crear embedding de la consulta
+        query_embedding = self.model.get_embeddings([query])[0]
+        
+        max_size = len(self.chuncks)
+        distances, indices = self.kdtree.query(
+            query_embedding.reshape(1, -1), 
+            k=max_size
+        )
+        
+        # 3. Mapear chunks a artículos manteniendo el orden de similitud
         articles_set = set(articles)
+        ranked_articles = []
         found_articles = set()
         
-        # 2. Obtener resultados iniciales
-        results = self.model.query(query, top_k=min(top_k, max_size))
-        
-        # Mapear resultados a artículos
-        ranked_articles = []
-        for _, idx in results:
+        # Procesar resultados en orden de similitud (menor distancia = mayor similitud)
+        for dist, idx in zip(distances[0], indices[0]):
             if idx < len(self.chunck_index):
                 art_id = self.chunck_index[idx]
+                # Solo añadir si está en la lista original y no lo hemos añadido ya
                 if art_id in articles_set and art_id not in found_articles:
                     ranked_articles.append(art_id)
                     found_articles.add(art_id)
+                    
+                    # Si ya encontramos todos los artículos, podemos parar
+                    if len(found_articles) == len(articles_set):
+                        break
         
-        # 3. Si no encontramos todos los artículos, aumentar top_k
-        while len(found_articles) < len(articles_set) and top_k < max_size:
-            top_k *= 2
-            top_k = min(top_k, max_size)
-            
-            results = self.model.query(query, top_k=top_k)
-            
-            for _, idx in results:
-                if idx < len(self.chunck_index):
-                    art_id = self.chunck_index[idx]
-                    if art_id in articles_set and art_id not in found_articles:
-                        ranked_articles.append(art_id)
-                        found_articles.add(art_id)
-        
-        # 4. Añadir cualquier artículo faltante al final
+        # 4. Añadir cualquier artículo faltante al final (por si acaso)
         missing_articles = [art_id for art_id in articles if art_id not in found_articles]
         ranked_articles.extend(missing_articles)
         
         return ranked_articles
+
 
     
     # FIN CAMBIO EN v1.2
