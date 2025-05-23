@@ -594,7 +594,7 @@ class SAR_Indexer:
 
         if self.semantic_threshold is not None and not self.semantic_ranking:
             # print(f"DEBUG: solve_query -> Desviando a búsqueda semántica pura para: '{query}'")
-            semantic_results_artids = self.solve_semantic_query(query)
+            semantic_results_artids = self.solve_semantic_query(query.lower())
             # solve_query debe devolver una tupla (list, dict)
             return semantic_results_artids, {}
         if not query:
