@@ -384,7 +384,7 @@ class SAR_Indexer:
         Recorre recursivamente el directorio "root"  y indexa su contenido
         los argumentos adicionales "**args" solo son necesarios para las funcionalidades ampliadas
 
-        """
+        """ 
         self.positional = args['positional']
         self.semantic = args['semantic']
         if self.semantic is True:
@@ -482,6 +482,7 @@ class SAR_Indexer:
                 'title': article['title'],
                 'url': article['url']
             }
+
             tokens = self.tokenize(article[self.DEFAULT_FIELD])
             if self.positional:
                 for pos, token in enumerate(tokens):
