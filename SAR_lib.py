@@ -541,7 +541,6 @@ class SAR_Indexer:
         Muestra estadisticas de los indices
 
         """
-        pass
         print("========================================")
         print("Estadísticas de indexación:")
         print("========================================")
