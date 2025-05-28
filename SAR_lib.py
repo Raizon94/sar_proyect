@@ -698,7 +698,11 @@ class SAR_Indexer:
         """
         if not self.positional:
             raise ValueError("Índice no posicional. No se puede buscar frases exactas.")
-
+        
+        #Comprobamos formato de la entrada
+        if isinstance(terms, str):
+            terms = [terms]
+        terms = [t.lower() for t in terms]
         if not terms:
             return []
 
