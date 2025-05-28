@@ -322,6 +322,7 @@ class SAR_Indexer:
         max_k=len(self.chuncks)
 
         while True:
+            #al principio k = MAX_EMBEDDINGS
             distances, indices = self.kdtree.query(
                 query_embedding.reshape(1, -1), 
                 k=top_k
@@ -343,8 +344,15 @@ class SAR_Indexer:
                         # Si ya encontramos todos los artículos, podemos parar
                         if len(found_articles) == len(articles_set):
                             return ranked_articles
-            
+                        
+            if top_k == max_k:
+                break
+            #aumentamos top_k
             top_k = min(top_k*2,max_k)
+
+        #Añadir cualquier artículo faltante al final (por si acaso, dada la indexación empleada, no debería pasar nunca)
+        missing_articles = [art_id for art_id in articles if art_id not in found_articles]
+        ranked_articles.extend(missing_articles)
         
         
 
