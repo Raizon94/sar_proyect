@@ -200,7 +200,7 @@ class SAR_Indexer:
         Añade los chuncks (frases en nuestro caso) del texto "txt" correspondiente al articulo "artid" en la lista de chuncks
         Pasos:
             1 - extraer los chuncks de txt, en nuestro caso son las frases. Se debe utilizar "sent_tokenize" de la librería "nltk"
-            2 - actualizar los atributos que consideres necesarios: self.chuncks, self.embeddings, self.chunck_index y self.artid_to_emb.
+            2 - actualizar los atributos que consideres necesarios: self.chuncks, self.chunck_index y self.artid_to_emb. Los embeddings correspondientes a estos chunks se calcularán y almacenarán cuando se llame a create_kdtree()
         """
         # 1 - Extraer frases usando sent_tokenize
         sentences = nltk.sent_tokenize(txt)
@@ -226,7 +226,7 @@ class SAR_Indexer:
 
     def create_kdtree(self):
         """
-        Crea el tktree utilizando un objeto de la librería SAR_semantics
+        Crea el kdtree utilizando un objeto de la librería SAR_semantics
         Solo se debe crear una vez despues de indexar todos los documentos
         
         # 1: Se debe llamar al método fit del modelo semántico
@@ -299,15 +299,14 @@ class SAR_Indexer:
 
         Ordena los articulos en la lista 'article' por similitud a la consulta 'query'.
         Pasos:
-            1 - utiliza el método query del modelo sémantico
-            2 - devuelve top_k resultado, inicialmente top_k puede ser MAX_EMBEDDINGS
-            3 - a partir de los chuncks se deben obtener los artículos
-            3 - si entre los artículos recuperados NO estan todos los obtenidos por la RI binaria
-                  ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
-            4 - se utiliza la lista ordenada del kdtree para ordenar la lista "articles"
+            1 - Se consultan todos los chunks del corpus, ordenándolos por similitud a la 'query' 
+                (mediante el embedding de la consulta y el KD-Tree).
+            2 - Se construye la lista reordenada: se procesan los chunks del paso 1 y se van añadiendo 
+                los artículos (de la lista 'articles' de entrada) conforme aparecen en este orden semántico.
+            3 - Los artículos de la lista 'articles' de entrada que no fueron cubiertos por el ordenamiento 
+                semántico del paso 2 se incorporan al final de la lista resultante.
+            4 - Devuelve la lista de artículos reordenada.
         """
-        # Cargar modelo semántico si no está cargado
-        self.load_semantic_model()
         
         # Verificar que existe el kdtree
         if self.kdtree is None:
@@ -318,7 +317,7 @@ class SAR_Indexer:
         if len(self.chuncks) == 0 or len(articles) == 0:
             return articles
         
-        # 1. Crear embedding de la consulta
+        # Crear embedding de la consulta
         query_embedding = self.model.get_embeddings([query])[0]
         
         max_size = len(self.chuncks)
@@ -327,7 +326,7 @@ class SAR_Indexer:
             k=max_size
         )
         
-        # 3. Mapear chunks a artículos manteniendo el orden de similitud
+        # Mapear chunks a artículos manteniendo el orden de similitud
         articles_set = set(articles)
         ranked_articles = []
         found_articles = set()
@@ -345,7 +344,7 @@ class SAR_Indexer:
                     if len(found_articles) == len(articles_set):
                         break
         
-        # 4. Añadir cualquier artículo faltante al final (por si acaso)
+        # 4. Añadir cualquier artículo faltante al final (por si acaso, dada la indexación empleada, no debería pasar nunca)
         missing_articles = [art_id for art_id in articles if art_id not in found_articles]
         ranked_articles.extend(missing_articles)
         
@@ -537,9 +536,6 @@ class SAR_Indexer:
 
         """
         pass
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
         print("========================================")
         print("Estadísticas de indexación:")
         print("========================================")
@@ -597,17 +593,13 @@ class SAR_Indexer:
             semantic_results_artids = self.solve_semantic_query(query.lower())
             # solve_query debe devolver una tupla (list, dict)
             return semantic_results_artids, {}
+        
         if not query:
             return [], {}
 
         tokens = re.findall(r'"[^"]+"|\S+', query)
         result = None
         i = 0
-
-        #Para testear
-        #print("---------------------Tokens en solve_query--------------")
-        #print (tokens)
-        #print("--------------------------------------------------------")
 
         while i < len(tokens):
             token = tokens[i]
@@ -675,10 +667,6 @@ class SAR_Indexer:
         NECESARIO PARA TODAS LAS VERSIONES
 
         """
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
-        #Jorge
         
         if term in self.index:
             if self.positional:
@@ -704,12 +692,6 @@ class SAR_Indexer:
         """
         if not self.positional:
             raise ValueError("Índice no posicional. No se puede buscar frases exactas.")
-        
-        #Comprobamos formato de la entrada
-
-        if isinstance(terms, str):
-            terms = [terms]
-        terms = [t.lower() for t in terms]
 
         if not terms:
             return []
@@ -777,10 +759,6 @@ class SAR_Indexer:
         return resultado
 
 
-
-
-
-
     def reverse_posting(self, p:list):
         """
         NECESARIO PARA TODAS LAS VERSIONES
@@ -789,7 +767,7 @@ class SAR_Indexer:
         Util para resolver las queries con NOT.
         Realizado de acuerdo con los algoritmos vistos en el tema 1.
         """
-        all_docs = list(self.articles.keys())  # Convertir a lista para hacerlo indexable
+        all_docs = list(self.articles.keys())  # Obtengo todos los artid
             
         result = []
         i = j = 0
@@ -856,9 +834,6 @@ class SAR_Indexer:
         return: posting list con los artid incluidos de p1 y no en p2
 
         """
-        ########################################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES SI ES NECESARIO ##
-        ########################################################
         
         result = []
         i = j = 0
