@@ -296,16 +296,14 @@ class SAR_Indexer:
 
     def semantic_reranking(self, query: str, articles: List[int]):
         """
-
-        Ordena los articulos en la lista 'article' por similitud a la consulta 'query'.
+        Ordena los articulos en la lista 'articles' por similitud a la consulta 'query'.
         Pasos:
-            1 - Se consultan todos los chunks del corpus, ordenándolos por similitud a la 'query' 
-                (mediante el embedding de la consulta y el KD-Tree).
-            2 - Se construye la lista reordenada: se procesan los chunks del paso 1 y se van añadiendo 
-                los artículos (de la lista 'articles' de entrada) conforme aparecen en este orden semántico.
-            3 - Los artículos de la lista 'articles' de entrada que no fueron cubiertos por el ordenamiento 
-                semántico del paso 2 se incorporan al final de la lista resultante.
-            4 - Devuelve la lista de artículos reordenada.
+            1 - utiliza el método query del modelo sémantico
+            2 - devuelve top_k resultado, inicialmente top_k puede ser MAX_EMBEDDINGS
+            3 - a partir los chuncks se deben obtener los artículos
+            3 - si entre los artículos recuperados NO estan todos los obtenidos por la RI binaria
+                  ==> no se han recuperado todos los resultado: vuelve a 2 aumentando top_k
+            4 - se utiliza la lista ordenada del kdtree para ordenar la lista "articles"
         """
         
         # Verificar que existe el kdtree
@@ -319,36 +317,36 @@ class SAR_Indexer:
         
         # Crear embedding de la consulta
         query_embedding = self.model.get_embeddings([query])[0]
+
+        top_k=self.MAX_EMBEDDINGS
+        max_k=len(self.chuncks)
+
+        while True:
+            distances, indices = self.kdtree.query(
+                query_embedding.reshape(1, -1), 
+                k=top_k
+            )
+            
+            # Mapear chunks a artículos manteniendo el orden de similitud
+            articles_set = set(articles)
+            ranked_articles = []
+            found_articles = set()
+            
+            # Procesar resultados en orden de similitud (menor distancia = mayor similitud)
+            for dist, idx in zip(distances[0], indices[0]):
+                if idx < len(self.chunck_index):
+                    art_id = self.chunck_index[idx]
+                    # Solo añadir si está en la lista original y no lo hemos añadido ya
+                    if art_id in articles_set and art_id not in found_articles:
+                        ranked_articles.append(art_id)
+                        found_articles.add(art_id)
+                        # Si ya encontramos todos los artículos, podemos parar
+                        if len(found_articles) == len(articles_set):
+                            return ranked_articles
+            
+            top_k = min(top_k*2,max_k)
         
-        max_size = len(self.chuncks)
-        distances, indices = self.kdtree.query(
-            query_embedding.reshape(1, -1), 
-            k=max_size
-        )
         
-        # Mapear chunks a artículos manteniendo el orden de similitud
-        articles_set = set(articles)
-        ranked_articles = []
-        found_articles = set()
-        
-        # Procesar resultados en orden de similitud (menor distancia = mayor similitud)
-        for dist, idx in zip(distances[0], indices[0]):
-            if idx < len(self.chunck_index):
-                art_id = self.chunck_index[idx]
-                # Solo añadir si está en la lista original y no lo hemos añadido ya
-                if art_id in articles_set and art_id not in found_articles:
-                    ranked_articles.append(art_id)
-                    found_articles.add(art_id)
-                    
-                    # Si ya encontramos todos los artículos, podemos parar
-                    if len(found_articles) == len(articles_set):
-                        break
-        
-        # 4. Añadir cualquier artículo faltante al final (por si acaso, dada la indexación empleada, no debería pasar nunca)
-        missing_articles = [art_id for art_id in articles if art_id not in found_articles]
-        ranked_articles.extend(missing_articles)
-        
-        return ranked_articles
 
 
     
