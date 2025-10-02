@@ -1,4 +1,4 @@
-from distancias_parte1 import *
+from gemini import *
 
 test = [
     ("camarero","caramelos"),
