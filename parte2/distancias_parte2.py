@@ -2,35 +2,102 @@
 #
 # INTEGRANTES DEL EQUIPO/GRUPO:
 #
-# - COMPLETAR
-# - COMPLETAR
+# - chati
+# - lamine yamal
 #
 ######################################################################
 
 import numpy as np
-
-def levenshtein_matriz(x, y):
+#tercer argumento es necesario? Lo he añadido para que pase los test
+def levenshtein_matriz(x, y, threshold=None):
+    """
+    Versión original con matriz completa.
+    """
     lenX, lenY = len(x), len(y)
+
     D = np.zeros((lenX + 1, lenY + 1), dtype=np.int32)
+
     for i in range(1, lenX + 1):
-        D[i][0] = D[i - 1][0] + 1
+        D[i, 0] = i 
+
     for j in range(1, lenY + 1):
-        D[0][j] = D[0][j - 1] + 1
-        for i in range(1, lenX + 1):
-            D[i][j] = min(
-                D[i - 1][j] + 1,
-                D[i][j - 1] + 1,
-                D[i - 1][j - 1] + (x[i - 1] != y[j - 1]),
+        D[0, j] = j
+
+    for i in range(1, lenX + 1):
+        for j in range(1, lenY + 1):
+
+            cost = 1 if x[i - 1] != y[j - 1] else 0
+            
+            D[i, j] = min(
+                D[i - 1, j] + 1,
+                D[i, j - 1] + 1,
+                D[i - 1, j - 1] + cost,
             )
+            
     return D[lenX, lenY]
 
 def levenshtein_reduccion(x, y, threshold=None):
-    # completar versión con reducción coste espacial
-    return 0 # COMPLETAR Y REEMPLAZAR ESTA PARTE
+    """
+    TAREA 6: Implementación de Levenshtein con reducción de coste espacial.
+    Usa solo dos filas para el cálculo, reduciendo el espacio de O(M*N) a O(N).
+    """
+    lenX, lenY = len(x), len(y)
+    
+    # Aseguramos que la cadena más corta (Y) defina el tamaño de las filas
+    if lenX < lenY:
+        return levenshtein_reduccion(y, x, threshold)
+
+    prev_row = list(range(lenY + 1))
+    
+    for i in range(1, lenX + 1):
+        curr_row = [i] + [0] * lenY # para cada fila, i = coste de eliminar i caracteres de y. 
+        min_cost_in_row = i
+        for j in range(1, lenY + 1):
+            cost = 1 if x[i - 1] != y[j - 1] else 0
+            curr_row[j] = min(
+                prev_row[j] + 1,      # Borrado
+                curr_row[j - 1] + 1,  # Inserción
+                prev_row[j - 1] + cost # Sustitución
+            )
+            if curr_row[j] < min_cost_in_row:
+                min_cost_in_row = curr_row[j]
+            
+        prev_row = curr_row
+
+    return prev_row[lenY]
 
 def levenshtein(x, y, threshold):
-    # completar versión reducción coste espacial y parada por threshold
-    return min(0,threshold+1) # COMPLETAR Y REEMPLAZAR ESTA PARTE
+    """
+    TAREA 7: Levenshtein con reducción de coste espacial y parada por umbral.
+    """
+    lenX, lenY = len(x), len(y)
+    
+    # Aseguramos que la cadena más corta (Y) defina el tamaño de las filas
+    if lenX < lenY:
+        return levenshtein(y, x, threshold)
+
+    prev_row = list(range(lenY + 1))
+    
+    for i in range(1, lenX + 1):
+        curr_row = [i] + [0] * lenY # para cada fila, i = coste de eliminar i caracteres de y. 
+        min_cost_in_row = i
+        for j in range(1, lenY + 1):
+            cost = 1 if x[i - 1] != y[j - 1] else 0
+            curr_row[j] = min(
+                prev_row[j] + 1,      # Borrado
+                curr_row[j - 1] + 1,  # Inserción
+                prev_row[j - 1] + cost # Sustitución
+            )
+            if curr_row[j] < min_cost_in_row:
+                min_cost_in_row = curr_row[j]
+        
+        # Si se proporciona un umbral y el coste mínimo de la fila lo supera, paramos
+        if threshold is not None and min_cost_in_row > threshold:
+            return threshold + 1
+            
+        prev_row = curr_row
+
+    return prev_row[lenY]
 
 def levenshtein_cota_optimista(x, y, threshold):
     return 0 # COMPLETAR Y REEMPLAZAR ESTA PARTE
