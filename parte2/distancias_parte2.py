@@ -7,6 +7,7 @@
 #
 ######################################################################
 
+from collections import Counter # para la cota optimista
 import numpy as np
 #tercer argumento es necesario? Lo he añadido para que pase los test
 def levenshtein_matriz(x, y, threshold=None):
@@ -99,8 +100,43 @@ def levenshtein(x, y, threshold):
 
     return prev_row[lenY]
 
+
 def levenshtein_cota_optimista(x, y, threshold):
-    return 0 # COMPLETAR Y REEMPLAZAR ESTA PARTE
+    """
+    Implementa la distancia de Levenshtein con una cota optimista
+    basada en el recuento de caracteres, como se especifica en la diapositiva.
+    """
+        
+    # 1. Contar frecuencias de la primera cadena
+    # Podriamos hacerlo de manera 'manual' recorriendo las cadenas...
+    counts = Counter(x)
+    #print(counts)
+
+    # 2. Restar frecuencias de la segunda cadena
+    for char in y:
+        counts[char] -= 1
+        
+    # 3. Calcular sumas de positivos y negativos
+    sum_pos = 0
+    sum_neg = 0
+    for value in counts.values():
+        if value > 0:
+            sum_pos += value
+        elif value < 0:
+            sum_neg += value
+            
+    # 4. Obtener la cota como el máximo de los valores absolutos
+    cota_optimista = max(sum_pos, abs(sum_neg))
+    
+    # Si la cota ya es mayor que el threshold, no tiene sentido seguir
+    if cota_optimista > threshold:
+        return threshold + 1
+
+    # CÁLCULO ESTÁNDAR DE LEVENSHTEIN  
+    # si la cota es inferior al threshold
+     
+    return levenshtein(x,y,threshold)
+
 
 def damerau_restricted(x, y, threshold=None):
     # versión con reducción coste espacial y parada por threshold
