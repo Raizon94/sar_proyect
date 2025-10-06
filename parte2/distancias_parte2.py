@@ -139,12 +139,62 @@ def levenshtein_cota_optimista(x, y, threshold):
 
 
 def damerau_restricted(x, y, threshold=None):
-    # versión con reducción coste espacial y parada por threshold
-     return min(0,threshold+1) # COMPLETAR Y REEMPLAZAR ESTA PARTE
+    """
+    Calcula la distancia de Damerau-Levenshtein restringida usando reducción
+    de coste espacial (3 filas) y parada temprana por umbral.
+    """
+
+    lenX, lenY = len(x), len(y)
+
+    # Cota optimista inicial
+    if abs(lenX - lenY) > threshold:
+        return threshold + 1
+
+    # Aseguramos que la cadena más corta defina el tamaño de filas
+    if lenX < lenY:
+        return damerau_restricted(y, x, threshold)
+
+    # Necesitamos 3 filas para la transposición
+    prev_prev_row = list(range(lenY + 1))
+    prev_row = list(range(lenY + 1))
+    
+    for i in range(1, lenX + 1):
+        # La fila actual empieza con el coste de borrado
+        curr_row = [i] + [0] * lenY
+        min_cost_in_row = i
+
+        for j in range(1, lenY + 1):
+            cost = 0 if x[i - 1] == y[j - 1] else 1
+            
+            curr_row[j] = min(prev_row[j] + 1, # eliminar
+                              curr_row[j - 1] + 1, # insertar
+                              prev_row[j - 1] + cost) #sustituir
+
+            # Comprobación de la TRANSPOSICIÓN
+            if i > 1 and j > 1 and x[i-1] == y[j-2] and x[i-2] == y[j-1]:
+                transposition_cost = prev_prev_row[j - 2] + 1 # El coste es 1, no 'cost'
+                curr_row[j] = min(curr_row[j], transposition_cost)
+            
+            if curr_row[j] < min_cost_in_row:
+                min_cost_in_row = curr_row[j]
+
+        # Parada temprana si el mínimo de la fila ya supera el umbral
+        if min_cost_in_row > threshold:
+            return threshold + 1
+        
+        # Actualizamos las filas para la siguiente iteración
+        prev_prev_row = prev_row
+        prev_row = curr_row
+
+    final_distance = prev_row[lenY]
+    
+    return final_distance if final_distance <= threshold else threshold + 1
+
 
 def damerau_intermediate(x, y, threshold=None):
     # versión con reducción coste espacial y parada por threshold
     return min(0,threshold+1) # COMPLETAR Y REEMPLAZAR ESTA PARTE
+
 
 opcionesSpell = {
     'levenshtein_m': levenshtein_matriz,
