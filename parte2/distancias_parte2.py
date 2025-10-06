@@ -192,8 +192,77 @@ def damerau_restricted(x, y, threshold=None):
 
 
 def damerau_intermediate(x, y, threshold=None):
-    # versión con reducción coste espacial y parada por threshold
-    return min(0,threshold+1) # COMPLETAR Y REEMPLAZAR ESTA PARTE
+    """
+    Calcula la distancia de Damerau-Levenshtein intermedia optimizada,
+    con 4 filas en memoria.
+
+    Operaciones consideradas:
+    - Inserción, Borrado, Sustitución (coste 1)
+    - Transposición 'ab' <-> 'ba' (coste 1)
+    - Transposición 'acb' <-> 'ba' (coste 2)
+    - Transposición 'ab' <-> 'bca' (coste 2)
+    """
+    lenX, lenY = len(x), len(y)
+
+
+    # Cota optimista inicial para podar la búsqueda si es posible.
+    if abs(lenX - lenY) > threshold:
+        return threshold + 1
+
+    # Aseguramos que la cadena más corta sea 'y' para optimizar el espacio.
+    if lenX < lenY:
+        return damerau_intermediate(y, x, threshold)
+
+    # Inicializamos las filas necesarias
+    row_i_minus_3 = list(range(lenY + 1))
+    row_i_minus_2 = list(range(lenY + 1))
+    prev_row = list(range(lenY + 1)) # Fila i-1
+    
+    for i in range(1, lenX + 1):
+        curr_row = [i] + [0] * lenY # Fila i
+        min_cost_in_row = i
+
+        for j in range(1, lenY + 1):
+            cost = 0 if x[i-1] == y[j-1] else 1
+            
+            # 1. Operaciones básicas de Levenshtein
+            curr_row[j] = min(prev_row[j] + 1, # eliminar
+                              curr_row[j-1] + 1, # insertar 
+                              prev_row[j-1] + cost) # sustituir 
+
+            # 2. Transposición restringida (ab <-> ba)
+            if i > 1 and j > 1 and x[i-1] == y[j-2] and x[i-2] == y[j-1]:
+                transposition_cost = row_i_minus_2[j-2] + 1
+                curr_row[j] = min(curr_row[j], transposition_cost)
+
+            # 3. Transposición intermedia (acb <-> ba)
+            if i > 2 and j > 1 and x[i-1] == y[j-2] and x[i-3] == y[j-1]:
+                transposition_cost = row_i_minus_3[j-2] + 2
+                curr_row[j] = min(curr_row[j], transposition_cost)
+
+            # 4. Transposición intermedia (ab <-> bca)
+            if i > 1 and j > 2 and x[i-2] == y[j-1] and x[i-1] == y[j-3]:
+                transposition_cost = row_i_minus_2[j-3] + 2
+                curr_row[j] = min(curr_row[j], transposition_cost)
+
+            # Actualizamos el mínimo coste de la fila para la parada temprana
+            if curr_row[j] < min_cost_in_row:
+                min_cost_in_row = curr_row[j]
+        
+        # Parada temprana
+        if min_cost_in_row > threshold:
+            return threshold + 1
+
+        # Rotación de las filas para la siguiente iteración
+        row_i_minus_3 = row_i_minus_2
+        row_i_minus_2 = prev_row
+        prev_row = curr_row
+
+    final_distance = prev_row[lenY]
+
+    return final_distance if final_distance <= threshold else threshold + 1
+
+
 
 
 opcionesSpell = {
