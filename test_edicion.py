@@ -1,4 +1,4 @@
-from gemini import *
+from distancias_parte1 import *
 
 def aplicar_edicion( original, edicion, traza=False ):
     # tipos de operaciones de edicion:

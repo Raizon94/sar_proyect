@@ -2,8 +2,6 @@
 #
 # INTEGRANTES DEL EQUIPO/GRUPO:
 #
-# - Gemini AI
-# - Google Cloud
 #
 ######################################################################
 
