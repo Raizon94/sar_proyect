@@ -2,8 +2,9 @@
 #
 # INTEGRANTES DEL EQUIPO/GRUPO:
 #
-# - COMPLETAR
-# - COMPLETAR
+# - Germán Soria Bustos
+# - Jorge Rodríguez González
+# - Julián Cussianovich Porto
 #
 ######################################################################
 
