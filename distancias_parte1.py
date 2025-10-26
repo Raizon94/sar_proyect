@@ -11,21 +11,7 @@
 import numpy as np
 
 def levenshtein_matriz(x, y):
-    """
-    Calcula la distancia de Levenshtein entre dos cadenas (x, y) utilizando el
-    algoritmo de programación dinámica con una matriz completa.
-
-    Este método implementa directamente la ecuación de recurrencia descrita en
-    el boletín. Construye una matriz D de tamaño (len(x)+1) x (len(y)+1)
-    donde D[i, j] almacena el coste mínimo para convertir el prefijo x[:i] en y[:j].
-
-    Args:
-        x (str): La primera cadena.
-        y (str): La segunda cadena.
-
-    Returns:
-        int: La distancia de Levenshtein entre x e y.
-    """
+    
     lenX, lenY = len(x), len(y)
     
     # Se inicializa la matriz de programación dinámica con ceros.
@@ -33,7 +19,7 @@ def levenshtein_matriz(x, y):
     D = np.zeros((lenX + 1, lenY + 1), dtype=np.int32)
 
     # Inicialización de la primera fila y la primera columna.
-    # D[i, 0] es el coste de convertir x[:i] a una cadena vacía, que requiere 'i' borrados.
+    # D[i, 0] es el coste de convertir x[:i] a una cadena vacía, que requieren 'i' borrados.
     for i in range(1, lenX + 1):
         D[i, 0] = i
     # D[0, j] es el coste de convertir una cadena vacía a y[:j], que requiere 'j' inserciones.
@@ -60,26 +46,7 @@ def levenshtein_matriz(x, y):
     return D[lenX, lenY]
 
 def levenshtein_edicion(x, y):
-    """
-    Calcula la distancia de Levenshtein y además recupera la secuencia de
-    operaciones de edición para transformar x en y.
     
-    Esta función corresponde a la Tarea 1 del boletín.
-    El proceso consta de dos fases:
-    1. Rellenar la matriz de programación dinámica D, igual que en levenshtein_matriz.
-    2. Realizar un "backtracking" desde D[lenX, lenY] hasta D[0, 0] para reconstruir
-       el camino de coste mínimo. Cada paso en el camino corresponde a una
-       operación de edición.
-
-    Args:
-        x (str): La cadena de origen.
-        y (str): La cadena de destino.
-
-    Returns:
-        tuple[int, list]: Una tupla conteniendo la distancia y la lista de
-                          operaciones de edición. El formato de las operaciones es
-                          una lista de tuplas (char_x, char_y).
-    """
     # --- PASO 1: Construcción de la matriz de programación dinámica ---
     lenX, lenY = len(x), len(y)
     D = np.zeros((lenX + 1, lenY + 1), dtype=np.int32)
@@ -103,12 +70,12 @@ def levenshtein_edicion(x, y):
     # Se parte de la esquina inferior derecha y se retrocede hacia el origen.
     while i > 0 or j > 0:
         # Se debe gestionar el caso de llegar a un borde ("pared") de la matriz.
-        # Si estamos en la primera fila (i=0), solo podemos haber llegado desde la izquierda (inserción).
+        # Si estamos en la primera fila (i=0), solo podemos haber llegado desde la izquierda
         if i == 0:
             edits.append(('', y[j - 1]))
             j -= 1
             continue
-        # Si estamos en la primera columna (j=0), solo podemos haber llegado desde arriba (borrado).
+        # Si estamos en la primera columna (j=0), solo podemos haber llegado desde arriba
         if j == 0:
             edits.append((x[i - 1], ''))
             i -= 1
@@ -117,7 +84,8 @@ def levenshtein_edicion(x, y):
         cost = 1 if x[i-1] != y[j-1] else 0
         
         # Se reconstruye el camino eligiendo el movimiento que generó el valor D[i,j].
-        # Se prioriza la diagonal para agrupar sustituciones y aciertos. IMPORTANTE: influye en el orden de modificaciones.
+        # Se prioriza la diagonal para agrupar sustituciones y aciertos. IMPORTANTE: influye en el orden de modificaciones. En clase se nos ha indicado que el orden de las modificaciones puede variar en función de la implementación
+        # ya que varios conjuntos de modificaciones llevan al mismo coste
         if D[i, j] == D[i - 1, j - 1] + cost:
             # Movimiento diagonal: corresponde a una sustitución o un acierto.
             edits.append((x[i - 1], y[j - 1]))
@@ -137,23 +105,7 @@ def levenshtein_edicion(x, y):
     return D[lenX, lenY], edits
 
 def damerau_restricted_matriz(x, y):
-    """
-    Calcula la distancia de Damerau-Levenshtein en su versión restringida.
     
-    Esta función corresponde a la Tarea 2. Extiende la distancia de
-    Levenshtein añadiendo la operación de transposición de dos caracteres
-    adyacentes (e.g., 'ab' -> 'ba') con coste 1.
-    
-    La implementación modifica la recurrencia de Levenshtein para incluir un
-    cuarto caso que comprueba esta posible transposición.
-
-    Args:
-        x (str): La primera cadena.
-        y (str): La segunda cadena.
-
-    Returns:
-        int: La distancia de Damerau-Levenshtein restringida.
-    """
     lenX, lenY = len(x), len(y)
     D = np.zeros((lenX + 1, lenY + 1), dtype=np.int32)
     for i in range(1, lenX + 1):
@@ -171,10 +123,10 @@ def damerau_restricted_matriz(x, y):
                 D[i - 1, j - 1] + cost
             )
             
-            # Nuevo caso para la transposición (última línea de la ecuación del boletín).
-            # Se comprueba si los dos últimos caracteres están intercambiados.
+            # Nuevo caso para la transposición
+            # Se comprueba si los dos últimos caracteres están intercambiados
             if i > 1 and j > 1 and x[i - 1] == y[j - 2] and x[i - 2] == y[j - 1]:
-                # El coste es 1 (transposición) + el coste de la subcadena anterior (D[i-2, j-2]).
+                # El coste es 1 + el coste de la subcadena anterior
                 d_val = min(d_val, D[i - 2, j - 2] + 1)
                 
             D[i,j] = d_val
@@ -182,22 +134,7 @@ def damerau_restricted_matriz(x, y):
     return D[lenX, lenY]
 
 def damerau_restricted_edicion(x, y):
-    """
-    Calcula la distancia de Damerau-Levenshtein restringida y recupera la
-    secuencia de operaciones, incluyendo las transposiciones.
-
-    Esta función corresponde a la Tarea 3. El backtracking se
-    modifica para que, además de los movimientos de Levenshtein, pueda
-    detectar un salto diagonal de 2x2 que corresponde a una transposición.
-    Las transposiciones se representan con la tupla ('ab', 'ba').
-
-    Args:
-        x (str): La cadena de origen.
-        y (str): La cadena de destino.
-
-    Returns:
-        tuple[int, list]: Distancia y lista de operaciones.
-    """
+    
     # --- PASO 1: Construcción de la matriz ---
     lenX, lenY = len(x), len(y)
     D = np.zeros((lenX + 1, lenY + 1), dtype=np.int32)
@@ -225,11 +162,8 @@ def damerau_restricted_edicion(x, y):
             i -= 2
             j -= 2
         else:
-            # Si no hay transposición, se procede con la lógica de Levenshtein.
+            # Si no hay transposición, se procede con la lógica de Levenshtein normal.
             cost = 1 if (i > 0 and j > 0 and x[i-1] != y[j-1]) else 0
-            # En el caso de que i o j sean 0, el coste de sustitución/acierto no se puede calcular.
-            # En la práctica, el backtracking nunca evaluará esta condición si i o j es 0,
-            # ya que los casos de borrado/inserción se evaluarán antes.
             
             # Movimiento diagonal (sustitución/acierto).
             if i > 0 and j > 0 and D[i,j] == D[i-1,j-1] + cost:
@@ -245,32 +179,13 @@ def damerau_restricted_edicion(x, y):
                 edits.append(('', y[j-1]))
                 j -= 1
             else:
-                # Si no se encuentra un camino válido, se detiene.
-                # Esto no debería ocurrir en una implementación correcta.
                 break
                 
     edits.reverse()
     return D[lenX, lenY], edits
 
 def damerau_intermediate_matriz(x, y):
-    """
-    Calcula la distancia de Damerau-Levenshtein en su versión "intermedia".
-
-    Esta función corresponde a la Tarea 4. Se basa en la versión
-    restringida y añade dos nuevas operaciones de edición:
-    1. 'acb' -> 'ba' (coste 2)
-    2. 'ab' -> 'bca' (coste 2)
     
-    La implementación añade dos nuevos casos a la ecuación de recurrencia para
-    contemplar estas transformaciones.
-
-    Args:
-        x (str): La primera cadena.
-        y (str): La segunda cadena.
-
-    Returns:
-        int: La distancia de Damerau-Levenshtein intermedia.
-    """
     lenX, lenY = len(x), len(y)
     D = np.zeros((lenX + 1, lenY + 1), dtype=np.int32)
     for i in range(1, lenX + 1):
@@ -289,15 +204,11 @@ def damerau_intermediate_matriz(x, y):
             
             # Caso 2: Nueva operación 'acb' -> 'ba' (coste 2).
             # Comprueba si x termina en 'acb' e y termina en 'ba' donde a y b coinciden.
-            # x_prefijo_i termina en x[i-3]x[i-2]x[i-1]
-            # y_prefijo_j termina en y[j-2]y[j-1]
             if i > 2 and j > 1 and x[i-3] == y[j-1] and x[i-1] == y[j-2]:
                 d_val = min(d_val, D[i-3, j-2] + 2)
 
             # Caso 3: Nueva operación 'ab' -> 'bca' (coste 2).
             # Comprueba si x termina en 'ab' e y termina en 'bca' donde a y b coinciden.
-            # x_prefijo_i termina en x[i-2]x[i-1]
-            # y_prefijo_j termina en y[j-3]y[j-2]y[j-1]
             if i > 1 and j > 2 and x[i-2] == y[j-1] and x[i-1] == y[j-3]:
                 d_val = min(d_val, D[i-2, j-3] + 2)
                 
@@ -306,22 +217,7 @@ def damerau_intermediate_matriz(x, y):
     return D[lenX, lenY]
 
 def damerau_intermediate_edicion(x, y):
-    """
-    Calcula la distancia de Damerau-Levenshtein intermedia y recupera la
-    secuencia de operaciones de edición.
-
-    Esta función corresponde a la Tarea 5. El backtracking se
-    amplía para reconocer los nuevos tipos de edición, que implican saltos
-    de 3x2 y 2x3 en la matriz. Las nuevas operaciones se representan como
-    tuplas ('acb', 'ba') o ('ab', 'bca').
-
-    Args:
-        x (str): La cadena de origen.
-        y (str): La cadena de destino.
-
-    Returns:
-        tuple[int, list]: Distancia y lista de operaciones.
-    """
+    
     # --- PASO 1: Construcción de la matriz ---
     lenX, lenY = len(x), len(y)
     D = np.zeros((lenX + 1, lenY + 1), dtype=np.int32)
@@ -384,7 +280,7 @@ def damerau_intermediate_edicion(x, y):
     return D[lenX, lenY], edits
 
 # Diccionario para acceder a las funciones de cálculo de distancia por su nombre.
-# Útil para una selección dinámica del algoritmo a utilizar.
+# Lo usaremos para selección dinámica del algoritmo a utilizar.
 opcionesSpell = {
     'levenshtein_m': levenshtein_matriz,
     'damerau_rm':    damerau_restricted_matriz,
@@ -398,25 +294,20 @@ opcionesEdicion = {
     'damerau_i':   damerau_intermediate_edicion
 }
 
-# Este bloque se ejecuta solo si el script es invocado directamente.
-# Sirve como una pequeña prueba o demostración de las funciones implementadas.
 if __name__ == "__main__":
     print("--- Ejemplo Levenshtein ('ejemplo' -> 'campos') ---")
     dist, edits = levenshtein_edicion("ejemplo", "campos")
-    print(f"Distancia: {dist}") # Esperado: 5
-    print(f"Ediciones: {edits}") # [('e', ''), ('j', 'c'), ('e', 'a'), ('m', 'm'), ('p', 'p'), ('l', 'o'), ('o', 's')]
+    print(f"Distancia: {dist}")
+    print(f"Ediciones: {edits}")
     
     print("\n--- Ejemplo Damerau Restringida ('algoritmo' -> 'algortimo') ---")
-    # Este es un caso clásico donde la transposición reduce la distancia.
-    # Levenshtein daría 2 (sustituir 'i' por 't', 't' por 'i').
-    # Damerau da 1 (transponer 'it' -> 'ti').
+    
     dist_dr, edits_dr = damerau_restricted_edicion("algoritmo", "algortimo")
-    print(f"Distancia: {dist_dr}") # Esperado: 1
-    print(f"Ediciones: {edits_dr}") # [('a', 'a'), ('l', 'l'), ('g', 'g'), ('o', 'o'), ('r', 'r'), ('it', 'ti'), ('m', 'm'), ('o', 'o')]
+    print(f"Distancia: {dist_dr}")
+    print(f"Ediciones: {edits_dr}")
 
     print("\n--- Ejemplo Damerau Intermedia ('acb' -> 'ba') ---")
-    # En la versión restringida, la distancia sería 3 (borrar c, sustituir a->b, b->a).
-    # En la intermedia, es una sola operación de coste 2.
+    
     dist_di, edits_di = damerau_intermediate_edicion("acb", "ba")
-    print(f"Distancia: {dist_di}") # Esperado: 2
-    print(f"Ediciones: {edits_di}") # Esperado: [('acb', 'ba')]
+    print(f"Distancia: {dist_di}")
+    print(f"Ediciones: {edits_di}")
