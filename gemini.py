@@ -30,24 +30,27 @@ def levenshtein_matriz(x, y):
     # El tamaño es +1 para incluir el caso de la cadena vacía.
     D = np.zeros((lenX + 1, lenY + 1), dtype=np.int32)
 
+
+    # IMP: D[i,j] = D[filas,columnas]
     # Inicialización de la primera fila y la primera columna.
     # D[i, 0] es el coste de convertir x[:i] a una cadena vacía, que requiere 'i' borrados.
     for i in range(1, lenX + 1):
-        D[i, 0] = i
+        D[i, 0] = i 
     # D[0, j] es el coste de convertir una cadena vacía a y[:j], que requiere 'j' inserciones.
     for j in range(1, lenY + 1):
         D[0, j] = j
         
     # Se rellena el resto de la matriz.
+    # Bucles empiezan por 1 porque la filas y columna 0 ya han sido rellenadas.
     for i in range(1, lenX + 1):
         for j in range(1, lenY + 1):
             # El coste de sustitución es 1 si los caracteres son diferentes, y 0 si son iguales.
             cost = 1 if x[i - 1] != y[j - 1] else 0
             
             # D[i, j] es el mínimo entre las tres operaciones de edición posibles:
-            # 1. D[i - 1, j] + 1: Borrado del carácter x[i-1].
-            # 2. D[i, j - 1] + 1: Inserción del carácter y[j-1].
-            # 3. D[i - 1, j - 1] + cost: Sustitución de x[i-1] por y[j-1] (o coincidencia).
+            # 1. D[i - 1, j] + 1: Borrado del carácter x[i-1]. (VERTICAL)
+            # 2. D[i, j - 1] + 1: Inserción del carácter y[j-1]. (HORIZONTAL)
+            # 3. D[i - 1, j - 1] + cost: Sustitución de x[i-1] por y[j-1] (o coincidencia). (DIAGONAL)
             D[i, j] = min(
                 D[i - 1, j] + 1,
                 D[i, j - 1] + 1,
