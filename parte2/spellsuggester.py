@@ -71,13 +71,16 @@ class SpellSuggester:
         if threshold is None:
             threshold = self.default_threshold
 
-        previous_threshold_result = []
         resul = []
 
         ########################################
         # COMPLETAR
         ########################################
 
+        # Hacemos una lista de listas para cada distancia posible hasta el threshold,
+        # de modo que nos de la estructura que se busca en el test
+        dist_resul = [[] for i in range(threshold+1)]
+        
         # Buscamos en el diccionario 'self.distance_functions' la función que 
         # corresponde al nombre que nos han pasado en el parámetro 'distance'.
         if distance in self.distance_functions:
@@ -97,22 +100,21 @@ class SpellSuggester:
             #    Le pasamos el 'threshold' para que el cálculo sea más rápido
             dist = dist_func(term, vocab_word, threshold)
             
-            if dist <= threshold -1:
-                previous_threshold_result.append(vocab_word)
-            elif dist <= threshold:
-                resul.append(vocab_word)
+            # Se guarda en la lista de la distancia correspondiente,
+            # se calculan las distancias de 0 a threshold, de modo que no se repite
+            if 0 <= dist <= threshold:
+                dist_resul[dist].append(vocab_word)
 
+        # Se hace sort dentro de cada lista por distancia, para que resulten ordenadas
+        for wlist in dist_resul:
+            wlist.sort()
 
+        resul = dist_resul
+
+        # Si se elige flatten, se hace flatten al resultado para que todo quede en una lista
         if flatten:
             resul = [word for wlist in resul for word in wlist]
-
-        previous_sorted = sorted(previous_threshold_result) 
-        resul_sorted = sorted(resul)
-
-        # no hay repetidos
-        # de esta forma, el resultado siempre tiene la forma:
-        # palabras aceptadas por el threshold anterior -> palabras aceptadas por el actual
-        
-        resul = previous_sorted + resul_sorted
+ 
+        #resul.sort()
         return resul
 
